@@ -1,0 +1,241 @@
+Java EE 7 and Wildfly
+=====================
+:author: Stuart Douglas
+:email: <stuart.w.douglas@gmail.com>
+///////////////////////
+	Themes that you can choose includes:
+	web-2.0, swiss, neon beamer
+///////////////////////
+:deckjs_theme: swiss
+///////////////////////
+	Transitions that you can choose includes:
+	fade, horizontal-slide, vertical-slide
+///////////////////////
+:deckjs_transition: horizontal-slide
+///////////////////////
+	AsciiDoc use `source-highlight` as default highlighter.
+
+	Styles available for pygment highlighter:
+	monokai, manni, perldoc, borland, colorful, default, murphy, vs, trac,
+	tango, fruity, autumn, bw, emacs, vim, pastie, friendly, native,
+
+	Uncomment following two lines if you want to highlight your code
+	with `Pygments`.
+///////////////////////
+:pygments:
+:pygments_style: default
+///////////////////////
+	Uncomment following line if you want to scroll inside slides
+	with {down,up} arrow keys.
+///////////////////////
+//:scrollable:
+///////////////////////
+	Uncomment following line if you want to link css and js file
+	from outside instead of embedding them into the output file.
+///////////////////////
+//:linkcss:
+///////////////////////
+	Uncomment following line if you want to count each incremental
+	bullet as a new slide
+///////////////////////
+//:count_nested:
+
+== About me
+
+=== Stuart Douglas
+* Senior software engineer at Red Hat
+* Working on the Wildfly (formerly JBoss) application server
+* Focused on EE technology: Servlet, EJB, CDI etc
+
+=== Contact Details
+ * stuart.w.douglas@gmail.com
+ * http://github.com/stuartwdouglas
+
+
+== Outline
+
+=== Java EE7 Technologies
+
+ * Servlet 3.1
+ * Websockets
+ * CDI 1.1
+
+=== Wildfly application server
+ * Details about the name change and the new model
+ * Whats new in Wildfly
+
+
+== Servlet 3.1
+
+=== Notable Changes
+ * Async IO Support
+ * HTTP Upgrade Support
+
+== Async IO
+
+ * Servlet 3.1 now provides support for non-blocking IO
+
+=== Traditional IO
+
+ * Uses a thread per connection model
+ * Reads and writes are blocking, the operation will not return until the operation is complete
+ * A large number of connection directly translates to a large number of threads
+
+=== Non-blocking IO
+
+ * Read and write operation are non-blocking, instead a callback mechanism is used to let you know when the operation is complete
+ * A single thread can handle a large number of connections
+ * Programmers must be careful not to perform blocking operations within the IO thread
+ * Non-blocking code is generally more complex to write than blocking code
+
+== Servlet 3.1 Async IO
+
+=== To perform a blocking write
+
+ * Call `ServletOutputStream.setWriteListener(WriteListener writeListener)` to put the stream into async mode
+ * You *must* call `ServletOutputStream.isReady()` before calling `write()`
+ * When `isReady()` returns true you can call `write()`
+ * If the socket cannot write out all the data it will be queued, `write()` will always return immediately
+ * When `isReady()` return false then
+
+== HTTP Upgrade
+
+=== What is it
+
+ * HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
+ * A HTTP client sends a request with the `Upgrade:` header to initiate the connection.
+ * If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
+whatever handles the upgraded protocol.
+
+=== Why use it?
+
+ * It allows you to multiplex multiple protocols over the HTTP port
+ * Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
+ * Removes need to configure multiple ports
+
+== HTTP Upgrade - Web Socket example
+
+=== Client Request
+
+----
+GET / HTTP/1.1
+Host: example.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+----
+
+=== Server Response
+
+----
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+----
+
+== The Servlet Upgrade API
+
+ * To upgrade the request we call `<T extends HttpUpgradeHandler> T HttpServletRequest.upgrade(Class<T> handlerClass)`
+ * We are still responsible for checking for the `Upgrade` header, and setting and appropriate response headers
+ * Once the request is finished the resulting `HttpUpgradeHandler` will take over the connection, and can send and receive
+  data via the provided `WebConnection` and its associated streams.
+ * Upgraded connection can use the async IO capabilites of `ServletInputStream` and `ServletOutputStream`
+
+== The Servlet Upgrade API Continued
+[source,java]
+----
+public interface HttpUpgradeHandler {
+
+    public void init(WebConnection wc);
+
+    public void destroy();
+}
+
+public interface WebConnection extends AutoCloseable {
+
+    public ServletInputStream getInputStream() throws IOException;
+
+    public ServletOutputStream getOutputStream() throws IOException;
+}
+----
+
+== Websockets
+
+=== Introduction
+
+ * The websocket specification allows browsers and other clients to initiate a full duplex connection to the server
+ * This connection is initiated via a HTTP upgrade request
+ * Websockets is a framed protocol, all data is sent as part of a frame
+ * Frames have a header that specifies the length and the frame type (+ some other stuff)
+ * Possible to send data of unknown length using continuation frames
+
+== Web Socket frames
+ * Websockets defines the following frame types:
+  - Text - UTF-8 text frame
+  - Binary - Raw binary data
+  - Ping - Either side can send this to verify the the other endpoint is still connected
+  - Pong - Response to a ping frame
+  - Close - Sent to indicate the connection is being closed
+  - Continuation - Continuation of a text or binary frame
+
+== The Java Web Socket API
+ * The Websocket API provides both annotated and programatic API's to send an receive Websocket messages
+ * It can act as both the server and the client
+ * It provides a means of customising deployed endpoints via the `javax.websocket.server.ServerApplicationConfig`
+
+== Annotated Endpoints
+
+
+
+
+== Annotated Server Endpoint Example
+
+[source,java]
+----
+@ServerEndpoint("/websocket/{name}")
+public class HelloEndpoint {
+
+    @OnMessage
+    public String message(String message, @PathParam("name") String name) {
+        return "Hello " + name + " you sent" + message;
+    }
+
+    @OnMessage
+    public byte[] binaryMessage(byte[] binaryMessage) {
+        return binaryMessage; //echo binary data
+    }
+
+}
+----
+
+
+== Annotated Client Endpoint Example
+
+[source,java]
+----
+@ClientEndpoint
+public class AnnotatedClientEndpoint {
+
+    @OnOpen
+    public void onOpen(final Session session) {
+        session.getAsyncRemote().sendText("hi");
+    }
+
+    @OnMessage
+    public void onMessage(final String message, final Session session) {
+        system.out.println(message);
+    }
+}
+----
+
+=== Connecting an Annotated Endpoint
+
+[source,java]
+----
+ServerContainer sc = servletContext.getAttribute("javax.websocket.server.ServerContainer");
+Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws://example.com/chat/Stuart"));
+Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
+----
+
