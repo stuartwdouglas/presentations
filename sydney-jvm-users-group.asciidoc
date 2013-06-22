@@ -183,12 +183,8 @@ public interface WebConnection extends AutoCloseable {
 == The Java Web Socket API
  * The Websocket API provides both annotated and programatic API's to send an receive Websocket messages
  * It can act as both the server and the client
- * It provides a means of customising deployed endpoints via the `javax.websocket.server.ServerApplicationConfig`
-
-== Annotated Endpoints
-
-
-
+ * It provides a means of customising deployed endpoints via the `javax.websocket.server.ServerApplicationConfig` interface
+ * Provides `Encoder` and `Decoder` interfaces, to encode objects as messages and visa versa
 
 == Annotated Server Endpoint Example
 
@@ -196,6 +192,11 @@ public interface WebConnection extends AutoCloseable {
 ----
 @ServerEndpoint("/websocket/{name}")
 public class HelloEndpoint {
+
+    @OnOpen
+    public void onOpen(final Session session) {
+        session.getAsyncRemote().sendText("hi");
+    }
 
     @OnMessage
     public String message(String message, @PathParam("name") String name) {
@@ -207,9 +208,12 @@ public class HelloEndpoint {
         return binaryMessage; //echo binary data
     }
 
+    @OnClose
+    public void onClose(final Session session) {
+        System.out.println("Connection closed");
+    }
 }
 ----
-
 
 == Annotated Client Endpoint Example
 
@@ -237,5 +241,41 @@ public class AnnotatedClientEndpoint {
 ServerContainer sc = servletContext.getAttribute("javax.websocket.server.ServerContainer");
 Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws://example.com/chat/Stuart"));
 Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
+----
+
+== Message types
+
+@OnMessage annotated endpoints can provide you with access to the message in a number of different ways:
+
+=== Text messages
+ * `java.lang.String` to receive the whole message
+ * Java primitive or class equivalent to receive the whole message converted to that type
+ * String and boolean pair to receive the message in parts
+ * `java.io.Reader` to receive the whole message as a blocking stream
+ * any object parameter for which the endpoint has a text decoder
+
+=== Binary messages
+ * byte[] or `java.nio.ByteBuffer` to receive the whole message
+ * byte[] or `java.nio.ByteBuffer` with a boolean to receive the message in parts
+ * `java.io.InputStream` to receive the whole message as a blocking stream
+ * Any object parameter for which the endpoint has a binary decoder
+ 
+
+== Encoders and decoders
+ * Allow you to convert arbitrary objects to and from web socket messages
+ * Represented by 8 interfaces
+  - `javax.websocket.Decoder.Binary`
+  - `javax.websocket.Decoder.BinaryStream`
+  - `javax.websocket.Decoder.Text`
+  - `javax.websocket.Decoder.TextStream`
+  - `javax.websocket.Encoder.Text`
+  - `javax.websocket.Encoder.TextStream`
+  - `javax.websocket.Encoder.Binary`
+  - `javax.websocket.Encoder.BinaryStream`
+ * Decoder classes are specified in the `@ServerEndpoint` annotation
+
+[source,java]
+----
+@ServerEndpoint(value="/chat", encoders={JsonEncoder.class}, decoders={JsonDecoder.class})
 ----
 
