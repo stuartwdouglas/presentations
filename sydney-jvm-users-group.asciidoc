@@ -230,7 +230,7 @@ public class AnnotatedClientEndpoint {
 
     @OnMessage
     public void onMessage(final String message, final Session session) {
-        system.out.println(message);
+        System.out.println(message);
     }
 }
 ----
