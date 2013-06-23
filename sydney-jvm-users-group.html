@@ -2508,7 +2508,8 @@ When <tt>isReady()</tt> returns true you can call <tt>write()</tt>
 If the socket cannot write out all the data it will be queued, <tt>write()</tt> will always return immediately
 </li>
 <li class="">
-When <tt>isReady()</tt> return false then
+When <tt>isReady()</tt> return false then you cannot write, you must return and the write listener will be invoked again
+ once the stream is ready to write.
 </li>
 </ul>
 </div>

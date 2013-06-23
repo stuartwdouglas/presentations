@@ -96,7 +96,8 @@ Java EE 7 and Wildfly
  * You *must* call `ServletOutputStream.isReady()` before calling `write()`
  * When `isReady()` returns true you can call `write()`
  * If the socket cannot write out all the data it will be queued, `write()` will always return immediately
- * When `isReady()` return false then
+ * When `isReady()` return false then you cannot write, you must return and the write listener will be invoked again
+ once the stream is ready to write.
 
 == HTTP Upgrade
 
