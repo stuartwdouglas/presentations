@@ -308,7 +308,7 @@ Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
  * Previously CDI only looked for beans in an archive if `beans.xml` is present
  * Now if an archive contains session beans or classes with a CDI scope annotation it will be scanned
  * But only session beans and classes with a CDI scope annotation will be processed by CDI
- * Should greatly increase startup time and memory usage, as it is no longer necessary to load every class at startup
+ * Should greatly increase startup time and decrease memory usage, as it is no longer necessary to load every class at startup
 
 == Global enablement of interceptors, decorators and alternatives
 
