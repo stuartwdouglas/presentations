@@ -190,25 +190,25 @@ public interface WebConnection extends AutoCloseable {
 
 [source,java]
 ----
-@ServerEndpoint("/websocket/{name}")
+@ServerEndpoint("/websocket/{name}") //note the URL template.
 public class HelloEndpoint {
 
-    @OnOpen
+    @OnOpen //invoked when the client first connects
     public void onOpen(final Session session) {
         session.getAsyncRemote().sendText("hi");
     }
 
-    @OnMessage
+    @OnMessage //handles text messages
     public String message(String message, @PathParam("name") String name) {
         return "Hello " + name + " you sent" + message;
     }
 
-    @OnMessage
+    @OnMessage //handles binary messages
     public byte[] binaryMessage(byte[] binaryMessage) {
         return binaryMessage; //echo binary data
     }
 
-    @OnClose
+    @OnClose //invoked when the connection is closed
     public void onClose(final Session session) {
         System.out.println("Connection closed");
     }
@@ -255,11 +255,21 @@ Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
  * any object parameter for which the endpoint has a text decoder
 
 === Binary messages
- * byte[] or `java.nio.ByteBuffer` to receive the whole message
- * byte[] or `java.nio.ByteBuffer` with a boolean to receive the message in parts
+ * `byte[]` or `java.nio.ByteBuffer` to receive the whole message
+ * `byte[]` or `java.nio.ByteBuffer` with a boolean to receive the message in parts
  * `java.io.InputStream` to receive the whole message as a blocking stream
  * Any object parameter for which the endpoint has a binary decoder
- 
+
+=== Pong messages
+ * javax.websocket.PongMessage
+
+== @OnMessage methods
+ * An endpoint can have at most one @OnMessage annotated method for each message type (text, binary, pong)
+ * It must take one of the message type from the previous slide as a parameter
+ * If it returns a value the value will be encoded as a web socket message and sent to the client
+ * The `@PathParam` annotation can be used to inject values from the URL template
+ * Some message types can also be used with a boolean parameter to receive part of the message at a time
+ * When the boolean is `false` there is still more data to come
 
 == Encoders and decoders
  * Allow you to convert arbitrary objects to and from web socket messages
@@ -279,3 +289,99 @@ Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
 @ServerEndpoint(value="/chat", encoders={JsonEncoder.class}, decoders={JsonDecoder.class})
 ----
 
+== CDI 1.1
+
+=== New Features
+
+ * CDI is now enabled by default (but will not scan every class by default)
+ * Global enablement of interceptors, decorators and alternatives
+ * Class exclusion filters to limit which classes are turned into beans
+ * `@AroundConstruct` interceptor support
+ * `@Vetoed` annotation to prevent a class from being turned into a bean
+ * `AlterableContext` to allow beans to be explicitly destroyed
+ * Improvements to portable extension system to make them easier to write
+ * Lots of small improvements
+
+== CDI Enabled By Default
+ * Previously CDI only looked for beans in an archive if `beans.xml` is present
+ * Now if an archive contains session beans or classes with a CDI scope annotation it will be scanned
+ * But only session beans and classes with a CDI scope annotation will be processed by CDI
+ * Should greatly increase startup time and memory usage, as it is no longer necessary to load every class at startup
+
+== Global enablement of interceptors, decorators and alternatives
+ * Previously an interceptor/decorator/alternative had to be enabled in the `beans.xml` file of every archive
+
+
+== Wildfly
+
+=== What’s WildFly?
+ * New name for the JBoss Application Server project
+ * Reduce confusion over the name “JBoss”
+ * The name WildFly won a public voting election
+
+== WildFly and JBoss EAP
+
+=== WildFly
+
+* Focus: rapid innovation
+* Major releases every 6 to 9 months
+
+=== JBoss EAP:
+ * Focus: stability, long-term support, maintainability
+ * WildFly remains the upstream project for EAP
+ * But no 1:1 mapping of a WildFly release to each EAP release
+ * Once EAP begins to productize a given WF major, there will be no further WF releases in that series
+
+== Developer Friendly EAP
+ * Goal: make it much easier to use EAP in development
+ * Way too painful in the past!
+ * EAP Alphas freely available for download on jboss.org
+ * EAP CRs and GA releases available for download with a $0 dev subscription
+ * Not for production use
+ * EAP micro releases (e.g. 6.1.1) require a paid subscription
+
+== WildFly 8: Key Changes
+ * Java EE7
+ * Java SE 7 baseline
+ * Integration of Undertow webserver
+ * Fine-grained Administrative Access Control
+ * Patching
+
+
+== WildFly: Undertow
+ * New webserver project integrated in WildFly 8
+ * Servlet container
+ * Server for HTTP management interface
+ * HTTP Upgrade
+ * /subsystem=undertow instead of /subsystem=web
+
+== Why Another Webserver?
+ * A true non-blocking API (servlet is by itself insufficient)
+ * Improved support for modern security standards
+ * Upgrade from HTTP to our native protocols
+ * future one-port mode
+ * Support the latest network protocols naturally and with minimal overhead
+ * SPDY, Web Sockets
+ * Best possible performance and memory efficiency
+ * Handle complex routing use cases a la mod_rewrite
+ * Embeddable in standalone process / test environment
+
+== Long Term WF Roadmap
+ * WildFly 9
+ * ~ Summer 2014
+ * Reimplement the core management layer
+ * Currently much too difficult to write extensions
+ * Annotated interfaces, generated implementation
+ * Maintain protocol and API compatibility
+ * Transactional MSC
+ * Clean separation between core WildFly and features built on top
+
+== Get Involved!
+ *  www.wildfly.org
+ * Downloads: http://www.wildfly.org/download/
+ * Forums and wiki: https://community.jboss.org/en/ wildfly
+ * Docs: https://docs.jboss.org/author/display/WFLY8/ Documentation
+ * Dev mailing list: wildfly-dev@lists.jboss.org  * IRC on freenode: #wildfly and #wildfly-dev  * Code: https://github.com/wildfly/wildfly
+￼￼￼￼￼￼￼￼Sunday, June 9, 13
+
+== Q & A
