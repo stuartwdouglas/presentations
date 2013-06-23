@@ -295,22 +295,34 @@ Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
 
  * CDI is now enabled by default (but will not scan every class by default)
  * Global enablement of interceptors, decorators and alternatives
+ * `AlterableContext` to allow beans to be explicitly destroyed
  * Class exclusion filters to limit which classes are turned into beans
  * `@AroundConstruct` interceptor support
  * `@Vetoed` annotation to prevent a class from being turned into a bean
- * `AlterableContext` to allow beans to be explicitly destroyed
  * Improvements to portable extension system to make them easier to write
  * Lots of small improvements
 
 == CDI Enabled By Default
+
  * Previously CDI only looked for beans in an archive if `beans.xml` is present
  * Now if an archive contains session beans or classes with a CDI scope annotation it will be scanned
  * But only session beans and classes with a CDI scope annotation will be processed by CDI
  * Should greatly increase startup time and memory usage, as it is no longer necessary to load every class at startup
 
 == Global enablement of interceptors, decorators and alternatives
- * Previously an interceptor/decorator/alternative had to be enabled in the `beans.xml` file of every archive
 
+ * Previously an interceptor/decorator/alternative had to be enabled in the `beans.xml` file of every archive
+ * Now interceptors can be enabled globally using the `@Priority` annotation
+ * Lower priority interceptors are invoked first
+ * Order can still be overriden in `beans.xml`
+
+[source,java]
+----
+@Decorator @Priority(APPLICATION)
+class TimestampLogger implements Logger {
+...
+}
+----
 
 == Wildfly
 

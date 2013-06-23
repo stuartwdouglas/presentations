@@ -2855,6 +2855,9 @@ CDI is now enabled by default (but will not scan every class by default)
 Global enablement of interceptors, decorators and alternatives
 </li>
 <li class="">
+<tt>AlterableContext</tt> to allow beans to be explicitly destroyed
+</li>
+<li class="">
 Class exclusion filters to limit which classes are turned into beans
 </li>
 <li class="">
@@ -2862,9 +2865,6 @@ Class exclusion filters to limit which classes are turned into beans
 </li>
 <li class="">
 <tt>@Vetoed</tt> annotation to prevent a class from being turned into a bean
-</li>
-<li class="">
-<tt>AlterableContext</tt> to allow beans to be explicitly destroyed
 </li>
 <li class="">
 Improvements to portable extension system to make them easier to write
@@ -2898,7 +2898,22 @@ Should greatly increase startup time and memory usage, as it is no longer necess
 <li class="">
 Previously an interceptor/decorator/alternative had to be enabled in the <tt>beans.xml</tt> file of every archive
 </li>
+<li class="">
+Now interceptors can be enabled globally using the <tt>@Priority</tt> annotation
+</li>
+<li class="">
+Lower priority interceptors are invoked first
+</li>
+<li class="">
+Order can still be overriden in <tt>beans.xml</tt>
+</li>
 </ul>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nd">@Decorator</span> <span class="nd">@Priority</span><span class="o">(</span><span class="n">APPLICATION</span><span class="o">)</span>
+<span class="kd">class</span> <span class="nc">TimestampLogger</span> <span class="kd">implements</span> <span class="n">Logger</span> <span class="o">{</span>
+<span class="o">...</span>
+<span class="o">}</span>
+</pre></div></div></div>
 </section>
 <section class="slide">
 <h2>Wildfly</h2>
