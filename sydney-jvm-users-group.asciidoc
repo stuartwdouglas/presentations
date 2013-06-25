@@ -40,7 +40,7 @@ Java EE 7 and Wildfly
 ///////////////////////
 //:count_nested:
 
-== About me
+== About Me
 
 === Stuart Douglas
 * Senior software engineer at Red Hat
@@ -90,14 +90,40 @@ Java EE 7 and Wildfly
 
 == Servlet 3.1 Async IO
 
-=== To perform a blocking write
-
+=== Performing an async write
+ * Call ServletRequest.startAsync() to put the request into async mode
  * Call `ServletOutputStream.setWriteListener(WriteListener writeListener)` to put the stream into async mode
+ * The write listener will be invoked after the current request has returned to the container
  * You *must* call `ServletOutputStream.isReady()` before calling `write()`
  * When `isReady()` returns true you can call `write()`
  * If the socket cannot write out all the data it will be queued, `write()` will always return immediately
  * When `isReady()` return false then you cannot write, you must return and the write listener will be invoked again
  once the stream is ready to write.
+
+== Performing an async write (cont)
+
+[source,java]
+----
+protected void doGet(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException, IOException {
+    final AsyncContext context = req.startAsync();
+    final ServletOutputStream outputStream = resp.getOutputStream();
+    final String[] messages = {"Hello ", "async ", "world"};
+    outputStream.setWriteListener(new WriteListener() {
+        int pos = 0;
+        @Override
+        public synchronized void onWritePossible() throws IOException {
+            while (outputStream.isReady() && pos < messages.length()) {
+                outputStream.write(messages[pos++].getBytes());
+            }
+            if (pos == messages.length()) context.complete();
+        }
+        @Override
+        public void onError(final Throwable t) {
+            //error handling
+        }
+    });
+}
+----
 
 == HTTP Upgrade
 
@@ -143,6 +169,26 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
  * Once the request is finished the resulting `HttpUpgradeHandler` will take over the connection, and can send and receive
   data via the provided `WebConnection` and its associated streams.
  * Upgraded connection can use the async IO capabilites of `ServletInputStream` and `ServletOutputStream`
+
+== The Servlet Upgrade API (cont)
+[source,java]
+----
+public class MyProtocolUpgradeFilter implements Filter {
+
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+
+        HttpServletRequest req = (HttpServletRequest) request;
+        if("my-protocol".equals(req.getHeader("Upgrade"))) {
+            HttpServletResponse resp = (HttpServletResponse) response;
+            resp.setHeader("Connection", "upgrade");
+            resp.setHeader("Upgrade", "my-protocol");
+            req.upgrade(MyProtocolHandler.class);
+            return;
+        }
+        chain.doFilter(request, response);
+    }
+    ...
+----
 
 == The Servlet Upgrade API Continued
 [source,java]
@@ -374,7 +420,6 @@ class TimestampLogger implements Logger {
  * Upgrade from HTTP to our native protocols
  * future one-port mode
  * Support the latest network protocols naturally and with minimal overhead
- * SPDY, Web Sockets
  * Best possible performance and memory efficiency
  * Handle complex routing use cases a la mod_rewrite
  * Embeddable in standalone process / test environment
@@ -394,7 +439,8 @@ class TimestampLogger implements Logger {
  * Downloads: http://www.wildfly.org/download/
  * Forums and wiki: https://community.jboss.org/en/ wildfly
  * Docs: https://docs.jboss.org/author/display/WFLY8/ Documentation
- * Dev mailing list: wildfly-dev@lists.jboss.org  * IRC on freenode: #wildfly and #wildfly-dev  * Code: https://github.com/wildfly/wildfly
-￼￼￼￼￼￼￼￼Sunday, June 9, 13
+ * Dev mailing list: wildfly-dev@lists.jboss.org
+ * IRC on freenode: #wildfly and #wildfly-dev
+ * Code: https://github.com/wildfly/wildfly
 
 == Q & A
