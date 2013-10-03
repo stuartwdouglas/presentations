@@ -1,0 +1,350 @@
+Java EE 7 and Wildfly
+=====================
+:author: Stuart Douglas
+:email: <stuart.w.douglas@gmail.com>
+///////////////////////
+	Themes that you can choose includes:
+	web-2.0, swiss, neon beamer
+///////////////////////
+:deckjs_theme: swiss
+///////////////////////
+	Transitions that you can choose includes:
+	fade, horizontal-slide, vertical-slide
+///////////////////////
+:deckjs_transition: horizontal-slide
+///////////////////////
+	AsciiDoc use `source-highlight` as default highlighter.
+
+	Styles available for pygment highlighter:
+	monokai, manni, perldoc, borland, colorful, default, murphy, vs, trac,
+	tango, fruity, autumn, bw, emacs, vim, pastie, friendly, native,
+
+	Uncomment following two lines if you want to highlight your code
+	with `Pygments`.
+///////////////////////
+:pygments:
+:pygments_style: default
+///////////////////////
+	Uncomment following line if you want to scroll inside slides
+	with {down,up} arrow keys.
+///////////////////////
+//:scrollable:
+///////////////////////
+	Uncomment following line if you want to link css and js file
+	from outside instead of embedding them into the output file.
+///////////////////////
+//:linkcss:
+///////////////////////
+	Uncomment following line if you want to count each incremental
+	bullet as a new slide
+///////////////////////
+//:count_nested:
+
+== Undertow
+
+== Outline
+ * Undertow overview
+ * Websockets
+ * Servlet 3.1
+ * Embedded Undertow
+ * Undertow extensions
+
+== Undertow
+
+ * New webserver project integrated in WildFly 8
+ * Servlet container
+ * Server for HTTP management interface
+ * HTTP Upgrade
+ * /subsystem=undertow instead of /subsystem=web
+
+== Why Another Webserver?
+ * A true non-blocking API (servlet is by itself insufficient)
+ * Improved support for modern security standards
+ * Upgrade from HTTP to our native protocols
+ * future one-port mode
+ * Support the latest network protocols naturally and with minimal overhead
+ * Best possible performance and memory efficiency
+ * Handle complex routing use cases a la mod_rewrite
+ * Embeddable in standalone process / test environment
+
+== Servlet 3.1
+
+=== Notable Changes
+ * Async IO Support
+ * HTTP Upgrade Support
+
+== Async IO
+
+ * Servlet 3.1 now provides support for non-blocking IO
+
+=== Traditional IO
+
+ * Uses a thread per connection model
+ * Reads and writes are blocking, the operation will not return until the operation is complete
+ * A large number of connection directly translates to a large number of threads
+
+=== Non-blocking IO
+
+ * Read and write operation are non-blocking, instead a callback mechanism is used to let you know when the operation is complete
+ * A single thread can handle a large number of connections
+ * Programmers must be careful not to perform blocking operations within the IO thread
+ * Non-blocking code is generally more complex to write than blocking code
+
+== Servlet 3.1 Async IO
+
+=== Performing an async write
+ * Call ServletRequest.startAsync() to put the request into async mode
+ * Call `ServletOutputStream.setWriteListener(WriteListener writeListener)` to put the stream into async mode
+ * The write listener will be invoked after the current request has returned to the container
+ * You *must* call `ServletOutputStream.isReady()` before calling `write()`
+ * When `isReady()` returns true you can call `write()`
+ * If the socket cannot write out all the data it will be queued, `write()` will always return immediately
+ * When `isReady()` return false then you cannot write, you must return and the write listener will be invoked again
+ once the stream is ready to write.
+
+== Performing an async write (cont)
+
+[source,java]
+----
+protected void doGet(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException, IOException {
+    final AsyncContext context = req.startAsync();
+    final ServletOutputStream outputStream = resp.getOutputStream();
+    final String[] messages = {"Hello ", "async ", "world"};
+    outputStream.setWriteListener(new WriteListener() {
+        int pos = 0;
+        @Override
+        public synchronized void onWritePossible() throws IOException {
+            while (outputStream.isReady() && pos < messages.length()) {
+                outputStream.write(messages[pos++].getBytes());
+            }
+            if (pos == messages.length()) context.complete();
+        }
+        @Override
+        public void onError(final Throwable t) {
+            //error handling
+        }
+    });
+}
+----
+
+== HTTP Upgrade
+
+=== What is it
+
+ * HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
+ * A HTTP client sends a request with the `Upgrade:` header to initiate the connection.
+ * If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
+whatever handles the upgraded protocol.
+
+=== Why use it?
+
+ * It allows you to multiplex multiple protocols over the HTTP port
+ * Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
+ * Removes need to configure multiple ports
+
+== HTTP Upgrade - Web Socket example
+
+=== Client Request
+
+----
+GET / HTTP/1.1
+Host: example.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+----
+
+=== Server Response
+
+----
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+----
+
+== The Servlet Upgrade API
+
+ * To upgrade the request we call `<T extends HttpUpgradeHandler> T HttpServletRequest.upgrade(Class<T> handlerClass)`
+ * We are still responsible for checking for the `Upgrade` header, and setting and appropriate response headers
+ * Once the request is finished the resulting `HttpUpgradeHandler` will take over the connection, and can send and receive
+  data via the provided `WebConnection` and its associated streams.
+ * Upgraded connection can use the async IO capabilites of `ServletInputStream` and `ServletOutputStream`
+
+== The Servlet Upgrade API (cont)
+[source,java]
+----
+public class MyProtocolUpgradeFilter implements Filter {
+
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+
+        HttpServletRequest req = (HttpServletRequest) request;
+        if("my-protocol".equals(req.getHeader("Upgrade"))) {
+            HttpServletResponse resp = (HttpServletResponse) response;
+            resp.setHeader("Connection", "upgrade");
+            resp.setHeader("Upgrade", "my-protocol");
+            req.upgrade(MyProtocolHandler.class);
+            return;
+        }
+        chain.doFilter(request, response);
+    }
+    ...
+----
+
+== The Servlet Upgrade API Continued
+[source,java]
+----
+public interface HttpUpgradeHandler {
+
+    public void init(WebConnection wc);
+
+    public void destroy();
+}
+
+public interface WebConnection extends AutoCloseable {
+
+    public ServletInputStream getInputStream() throws IOException;
+
+    public ServletOutputStream getOutputStream() throws IOException;
+}
+----
+
+== Websockets
+
+=== Introduction
+
+ * The websocket specification allows browsers and other clients to initiate a full duplex connection to the server
+ * This connection is initiated via a HTTP upgrade request
+ * Websockets is a framed protocol, all data is sent as part of a frame
+ * Frames have a header that specifies the length and the frame type (+ some other stuff)
+ * Possible to send data of unknown length using continuation frames
+
+== Web Socket frames
+ * Websockets defines the following frame types:
+  - Text - UTF-8 text frame
+  - Binary - Raw binary data
+  - Ping - Either side can send this to verify the the other endpoint is still connected
+  - Pong - Response to a ping frame
+  - Close - Sent to indicate the connection is being closed
+  - Continuation - Continuation of a text or binary frame
+
+== The Java Web Socket API
+ * The Websocket API provides both annotated and programatic API's to send an receive Websocket messages
+ * It can act as both the server and the client
+ * It provides a means of customising deployed endpoints via the `javax.websocket.server.ServerApplicationConfig` interface
+ * Provides `Encoder` and `Decoder` interfaces, to encode objects as messages and visa versa
+
+== Annotated Server Endpoint Example
+
+[source,java]
+----
+@ServerEndpoint("/websocket/{name}") //note the URL template.
+public class HelloEndpoint {
+
+    @OnOpen //invoked when the client first connects
+    public void onOpen(final Session session) {
+        session.getAsyncRemote().sendText("hi");
+    }
+
+    @OnMessage //handles text messages
+    public String message(String message, @PathParam("name") String name) {
+        return "Hello " + name + " you sent" + message;
+    }
+
+    @OnMessage //handles binary messages
+    public byte[] binaryMessage(byte[] binaryMessage) {
+        return binaryMessage; //echo binary data
+    }
+
+    @OnClose //invoked when the connection is closed
+    public void onClose(final Session session) {
+        System.out.println("Connection closed");
+    }
+}
+----
+
+== Annotated Client Endpoint Example
+
+[source,java]
+----
+@ClientEndpoint
+public class AnnotatedClientEndpoint {
+
+    @OnOpen
+    public void onOpen(final Session session) {
+        session.getAsyncRemote().sendText("hi");
+    }
+
+    @OnMessage
+    public void onMessage(final String message, final Session session) {
+        System.out.println(message);
+    }
+}
+----
+
+=== Connecting an Annotated Endpoint
+
+[source,java]
+----
+ServerContainer sc = servletContext.getAttribute("javax.websocket.server.ServerContainer");
+Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws://example.com/chat/Stuart"));
+Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
+----
+
+== Message types
+
+@OnMessage annotated endpoints can provide you with access to the message in a number of different ways:
+
+=== Text messages
+ * `java.lang.String` to receive the whole message
+ * Java primitive
+ * String and boolean pair to receive the message in parts
+ * `java.io.Reader` to receive the whole message as a blocking stream
+ * any object parameter for which the endpoint has a text decoder
+
+=== Binary messages
+ * `byte[]` or `java.nio.ByteBuffer` to receive the whole message
+ * `byte[]` or `java.nio.ByteBuffer` with a boolean to receive the message in parts
+ * `java.io.InputStream` to receive the whole message as a blocking stream
+ * Any object parameter for which the endpoint has a binary decoder
+
+=== Pong messages
+ * javax.websocket.PongMessage
+
+== @OnMessage methods
+ * An endpoint can have at most one @OnMessage annotated method for each message type (text, binary, pong)
+ * It must take one of the message type from the previous slide as a parameter
+ * If it returns a value the value will be encoded as a web socket message and sent to the client
+ * The `@PathParam` annotation can be used to inject values from the URL template
+ * Some message types can also be used with a boolean parameter to receive part of the message at a time
+ * When the boolean is `false` there is still more data to come
+
+== Encoders and decoders
+ * Allow you to convert arbitrary objects to and from web socket messages
+ * Represented by 8 interfaces
+  - `javax.websocket.Decoder.Binary`
+  - `javax.websocket.Decoder.BinaryStream`
+  - `javax.websocket.Decoder.Text`
+  - `javax.websocket.Decoder.TextStream`
+  - `javax.websocket.Encoder.Text`
+  - `javax.websocket.Encoder.TextStream`
+  - `javax.websocket.Encoder.Binary`
+  - `javax.websocket.Encoder.BinaryStream`
+ * Decoder classes are specified in the `@ServerEndpoint` annotation
+
+[source,java]
+----
+@ServerEndpoint(value="/chat", encoders={JsonEncoder.class}, decoders={JsonDecoder.class})
+----
+
+== Get Involved!
+ *  www.wildfly.org
+ * Downloads: http://www.wildfly.org/download/
+ * Forums and wiki: https://community.jboss.org/en/ wildfly
+ * Docs: https://docs.jboss.org/author/display/WFLY8/ Documentation
+ * Dev mailing list: wildfly-dev@lists.jboss.org
+ * IRC on freenode: #wildfly and #wildfly-dev
+ * Code: https://github.com/wildfly/wildfly
+
+== Q & A
