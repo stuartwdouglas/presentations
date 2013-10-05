@@ -2468,13 +2468,13 @@ This module splits a long slide into multiple slides.
         <h3>Stuart Douglas</h3>
 </section>
 <section class="slide">
-<h2>Undertow</h2>
-</section>
-<section class="slide">
-<h2>Outline</h2>
+<h2>Undertow Presentation Outline</h2>
 <ul>
 <li class="">
 Undertow overview
+</li>
+<li class="">
+HTTP Upgrade
 </li>
 <li class="">
 Websockets
@@ -2497,7 +2497,7 @@ Undertow extensions
 New webserver project integrated in WildFly 8
 </li>
 <li class="">
-Servlet container
+Servlet 3.1 container
 </li>
 <li class="">
 Server for HTTP management interface
@@ -2523,7 +2523,7 @@ Improved support for modern security standards
 Upgrade from HTTP to our native protocols
 </li>
 <li class="">
-future one-port mode
+Future one-port mode
 </li>
 <li class="">
 Support the latest network protocols naturally and with minimal overhead
@@ -2536,6 +2536,316 @@ Handle complex routing use cases a la mod_rewrite
 </li>
 <li class="">
 Embeddable in standalone process / test environment
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>HTTP Upgrade</h2>
+<div class="sect2">
+<h3 id="_what_is_it">What is it</h3>
+<ul>
+<li class="">
+HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
+</li>
+<li class="">
+Standard mechanism defined in the HTTP/1.1 RFC, most common use is to initiate a websocket connection
+</li>
+<li class="">
+A HTTP client sends a request with the <tt>Upgrade:</tt> header to initiate the connection.
+</li>
+<li class="">
+If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
+whatever handles the upgraded protocol.
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_why_use_it">Why use it?</h3>
+<ul>
+<li class="">
+It allows you to multiplex multiple protocols over the HTTP port
+</li>
+<li class="">
+Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
+</li>
+<li class="">
+Removes need to configure multiple ports
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Port Reduction</h2>
+<ul>
+<li class="">
+Thanks to HTTP Upgrade we have managed to reduce the number of ports in the default Wildfly installation to 3
+</li>
+<li class="">
+This will be down to 2 by the time Wildfly goes final
+</li>
+<li class="">
+At some point we will offer a single port mode, to allow all server traffic to go through a single port
+</li>
+<li class="">
+This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>HTTP Upgrade - Web Socket example</h2>
+<div class="sect2">
+<h3 id="_client_request">Client Request</h3>
+<div class="listingblock">
+<div class="content">
+<pre><tt>GET / HTTP/1.1
+Host: example.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13</tt></pre>
+</div></div>
+</div>
+<div class="sect2">
+<h3 id="_server_response">Server Response</h3>
+<div class="listingblock">
+<div class="content">
+<pre><tt>HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</tt></pre>
+</div></div>
+</div>
+</section>
+<section class="slide">
+<h2>Websockets</h2>
+<div class="sect2">
+<h3 id="_introduction">Introduction</h3>
+<ul>
+<li class="">
+The websocket specification allows browsers and other clients to initiate a full duplex connection to the server
+</li>
+<li class="">
+This connection is initiated via a HTTP upgrade request
+</li>
+<li class="">
+Websockets is a framed protocol, all data is sent as part of a frame
+</li>
+<li class="">
+Frames have a header that specifies the length and the frame type (+ some other stuff)
+</li>
+<li class="">
+Possible to send data of unknown length using continuation frames
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Web Socket frames</h2>
+<ul>
+<li class="">
+Websockets defines the following frame types:
+<ul>
+<li class="">
+Text - UTF-8 text frame
+</li>
+<li class="">
+Binary - Raw binary data
+</li>
+<li class="">
+Ping - Either side can send this to verify the the other endpoint is still connected
+</li>
+<li class="">
+Pong - Response to a ping frame
+</li>
+<li class="">
+Close - Sent to indicate the connection is being closed
+</li>
+<li class="">
+Continuation - Continuation of a text or binary frame
+</li>
+</ul>
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>The Java Web Socket API</h2>
+<ul>
+<li class="">
+The Websocket API provides both annotated and programatic API&#8217;s to send an receive Websocket messages
+</li>
+<li class="">
+It can act as both the server and the client
+</li>
+<li class="">
+It provides a means of customising deployed endpoints via the <tt>javax.websocket.server.ServerApplicationConfig</tt> interface
+</li>
+<li class="">
+Provides <tt>Encoder</tt> and <tt>Decoder</tt> interfaces, to encode objects as messages and visa versa
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Annotated Server Endpoint Example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nd">@ServerEndpoint</span><span class="o">(</span><span class="s">&quot;/websocket/{name}&quot;</span><span class="o">)</span> <span class="c1">//note the URL template.</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloEndpoint</span> <span class="o">{</span>
+
+    <span class="nd">@OnOpen</span> <span class="c1">//invoked when the client first connects</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onOpen</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;hi&quot;</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@OnMessage</span> <span class="c1">//handles text messages</span>
+    <span class="kd">public</span> <span class="n">String</span> <span class="nf">message</span><span class="o">(</span><span class="n">String</span> <span class="n">message</span><span class="o">,</span> <span class="nd">@PathParam</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">)</span> <span class="n">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="s">&quot;Hello &quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s">&quot; you sent&quot;</span> <span class="o">+</span> <span class="n">message</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Another Annotated Server Endpoint Example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nd">@ServerEndpoint</span><span class="o">(</span><span class="s">&quot;/websocket/{name}&quot;</span><span class="o">)</span> <span class="c1">//note the URL template.</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloEndpoint</span> <span class="o">{</span>
+
+    <span class="nd">@OnMessage</span> <span class="c1">//handles binary messages</span>
+    <span class="kd">public</span> <span class="kt">byte</span><span class="o">[]</span> <span class="nf">binaryMessage</span><span class="o">(</span><span class="kt">byte</span><span class="o">[]</span> <span class="n">binaryMessage</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">binaryMessage</span><span class="o">;</span> <span class="c1">//echo binary data</span>
+    <span class="o">}</span>
+
+    <span class="nd">@OnClose</span> <span class="c1">//invoked when the connection is closed</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onClose</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Connection closed&quot;</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Annotated Client Endpoint Example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nd">@ClientEndpoint</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">AnnotatedClientEndpoint</span> <span class="o">{</span>
+
+    <span class="nd">@OnOpen</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onOpen</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;hi&quot;</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@OnMessage</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onMessage</span><span class="o">(</span><span class="kd">final</span> <span class="n">String</span> <span class="n">message</span><span class="o">,</span> <span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">message</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Connecting an Annotated Client Endpoint</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="n">ServerContainer</span> <span class="n">sc</span> <span class="o">=</span> <span class="n">servletContext</span><span class="o">.</span><span class="na">getAttribute</span><span class="o">(</span><span class="s">&quot;javax.websocket.server.ServerContainer&quot;</span><span class="o">);</span>
+<span class="n">Session</span> <span class="n">session</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="na">connectToServer</span><span class="o">(</span><span class="n">AnnotatedClientEndpoint</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="k">new</span> <span class="n">URI</span><span class="o">(</span><span class="s">&quot;ws://example.com/chat/Stuart&quot;</span><span class="o">));</span>
+<span class="n">Future</span><span class="o">&lt;</span><span class="n">Void</span><span class="o">&gt;</span> <span class="n">future</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;Hello Websocket&quot;</span><span class="o">);</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Message types</h2>
+<p>@OnMessage annotated endpoints can provide you with access to the message in a number of different ways:</p>
+<div class="sect2">
+<h3 id="_text_messages">Text messages</h3>
+<ul>
+<li class="">
+<tt>java.lang.String</tt> or Java primitive to receive the whole message
+</li>
+<li class="">
+<tt>java.io.Reader</tt> to receive the whole message as a blocking stream
+</li>
+<li class="">
+any object parameter for which the endpoint has a text decoder
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_binary_messages">Binary messages</h3>
+<ul>
+<li class="">
+<tt>byte[]</tt> or <tt>java.nio.ByteBuffer</tt>
+</li>
+<li class="">
+<tt>java.io.InputStream</tt> to receive the whole message as a blocking stream
+</li>
+<li class="">
+Any object parameter for which the endpoint has a binary decoder
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_pong_messages">Pong messages</h3>
+<ul>
+<li class="">
+javax.websocket.PongMessage
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>@OnMessage methods</h2>
+<ul>
+<li class="">
+An endpoint can have at most one @OnMessage annotated method for each message type (text, binary, pong)
+</li>
+<li class="">
+It must take one of the message type from the previous slide as a parameter
+</li>
+<li class="">
+If it returns a value the value will be encoded as a web socket message and sent to the client
+</li>
+<li class="">
+The <tt>@PathParam</tt> annotation can be used to inject values from the URL template
+</li>
+<li class="">
+Some message types can also be used with a boolean parameter to receive part of the message at a time
+</li>
+<li class="">
+When the boolean is <tt>false</tt> there is still more data to come
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Encoders and decoders</h2>
+<ul>
+<li class="">
+Allow you to convert arbitrary objects to and from web socket messages
+</li>
+<li class="">
+Represented by 8 interfaces
+<ul>
+<li class="">
+<tt>javax.websocket.Decoder.Binary</tt>
+</li>
+<li class="">
+<tt>javax.websocket.Decoder.BinaryStream</tt>
+</li>
+<li class="">
+<tt>javax.websocket.Decoder.Text</tt>
+</li>
+<li class="">
+<tt>javax.websocket.Decoder.TextStream</tt>
+</li>
+<li class="">
+<tt>javax.websocket.Encoder.Text</tt>
+</li>
+<li class="">
+<tt>javax.websocket.Encoder.TextStream</tt>
+</li>
+<li class="">
+<tt>javax.websocket.Encoder.Binary</tt>
+</li>
+<li class="">
+<tt>javax.websocket.Encoder.BinaryStream</tt>
+</li>
+</ul>
+</li>
+<li class="">
+Decoder classes are specified in the <tt>@ServerEndpoint</tt> annotation
 </li>
 </ul>
 </section>
@@ -2638,70 +2948,9 @@ When <tt>isReady()</tt> return false then you cannot write, you must return and 
             <span class="o">}</span>
             <span class="k">if</span> <span class="o">(</span><span class="n">pos</span> <span class="o">==</span> <span class="n">messages</span><span class="o">.</span><span class="na">length</span><span class="o">())</span> <span class="n">context</span><span class="o">.</span><span class="na">complete</span><span class="o">();</span>
         <span class="o">}</span>
-        <span class="nd">@Override</span>
-        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onError</span><span class="o">(</span><span class="kd">final</span> <span class="n">Throwable</span> <span class="n">t</span><span class="o">)</span> <span class="o">{</span>
-            <span class="c1">//error handling</span>
-        <span class="o">}</span>
     <span class="o">});</span>
 <span class="o">}</span>
 </pre></div></div></div>
-</section>
-<section class="slide">
-<h2>HTTP Upgrade</h2>
-<div class="sect2">
-<h3 id="_what_is_it">What is it</h3>
-<ul>
-<li class="">
-HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
-</li>
-<li class="">
-A HTTP client sends a request with the <tt>Upgrade:</tt> header to initiate the connection.
-</li>
-<li class="">
-If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
-whatever handles the upgraded protocol.
-</li>
-</ul>
-</div>
-<div class="sect2">
-<h3 id="_why_use_it">Why use it?</h3>
-<ul>
-<li class="">
-It allows you to multiplex multiple protocols over the HTTP port
-</li>
-<li class="">
-Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
-</li>
-<li class="">
-Removes need to configure multiple ports
-</li>
-</ul>
-</div>
-</section>
-<section class="slide">
-<h2>HTTP Upgrade - Web Socket example</h2>
-<div class="sect2">
-<h3 id="_client_request">Client Request</h3>
-<div class="listingblock">
-<div class="content">
-<pre><tt>GET / HTTP/1.1
-Host: example.com
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
-Sec-WebSocket-Version: 13</tt></pre>
-</div></div>
-</div>
-<div class="sect2">
-<h3 id="_server_response">Server Response</h3>
-<div class="listingblock">
-<div class="content">
-<pre><tt>HTTP/1.1 101 Switching Protocols
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</tt></pre>
-</div></div>
-</div>
 </section>
 <section class="slide">
 <h2>The Servlet Upgrade API</h2>
@@ -2757,243 +3006,6 @@ Upgraded connection can use the async IO capabilites of <tt>ServletInputStream</
 
     <span class="kd">public</span> <span class="n">ServletOutputStream</span> <span class="nf">getOutputStream</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">;</span>
 <span class="o">}</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Websockets</h2>
-<div class="sect2">
-<h3 id="_introduction">Introduction</h3>
-<ul>
-<li class="">
-The websocket specification allows browsers and other clients to initiate a full duplex connection to the server
-</li>
-<li class="">
-This connection is initiated via a HTTP upgrade request
-</li>
-<li class="">
-Websockets is a framed protocol, all data is sent as part of a frame
-</li>
-<li class="">
-Frames have a header that specifies the length and the frame type (+ some other stuff)
-</li>
-<li class="">
-Possible to send data of unknown length using continuation frames
-</li>
-</ul>
-</div>
-</section>
-<section class="slide">
-<h2>Web Socket frames</h2>
-<ul>
-<li class="">
-Websockets defines the following frame types:
-<ul>
-<li class="">
-Text - UTF-8 text frame
-</li>
-<li class="">
-Binary - Raw binary data
-</li>
-<li class="">
-Ping - Either side can send this to verify the the other endpoint is still connected
-</li>
-<li class="">
-Pong - Response to a ping frame
-</li>
-<li class="">
-Close - Sent to indicate the connection is being closed
-</li>
-<li class="">
-Continuation - Continuation of a text or binary frame
-</li>
-</ul>
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>The Java Web Socket API</h2>
-<ul>
-<li class="">
-The Websocket API provides both annotated and programatic API&#8217;s to send an receive Websocket messages
-</li>
-<li class="">
-It can act as both the server and the client
-</li>
-<li class="">
-It provides a means of customising deployed endpoints via the <tt>javax.websocket.server.ServerApplicationConfig</tt> interface
-</li>
-<li class="">
-Provides <tt>Encoder</tt> and <tt>Decoder</tt> interfaces, to encode objects as messages and visa versa
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>Annotated Server Endpoint Example</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="nd">@ServerEndpoint</span><span class="o">(</span><span class="s">&quot;/websocket/{name}&quot;</span><span class="o">)</span> <span class="c1">//note the URL template.</span>
-<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloEndpoint</span> <span class="o">{</span>
-
-    <span class="nd">@OnOpen</span> <span class="c1">//invoked when the client first connects</span>
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onOpen</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
-        <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;hi&quot;</span><span class="o">);</span>
-    <span class="o">}</span>
-
-    <span class="nd">@OnMessage</span> <span class="c1">//handles text messages</span>
-    <span class="kd">public</span> <span class="n">String</span> <span class="nf">message</span><span class="o">(</span><span class="n">String</span> <span class="n">message</span><span class="o">,</span> <span class="nd">@PathParam</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">)</span> <span class="n">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
-        <span class="k">return</span> <span class="s">&quot;Hello &quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s">&quot; you sent&quot;</span> <span class="o">+</span> <span class="n">message</span><span class="o">;</span>
-    <span class="o">}</span>
-
-    <span class="nd">@OnMessage</span> <span class="c1">//handles binary messages</span>
-    <span class="kd">public</span> <span class="kt">byte</span><span class="o">[]</span> <span class="nf">binaryMessage</span><span class="o">(</span><span class="kt">byte</span><span class="o">[]</span> <span class="n">binaryMessage</span><span class="o">)</span> <span class="o">{</span>
-        <span class="k">return</span> <span class="n">binaryMessage</span><span class="o">;</span> <span class="c1">//echo binary data</span>
-    <span class="o">}</span>
-
-    <span class="nd">@OnClose</span> <span class="c1">//invoked when the connection is closed</span>
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onClose</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
-        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Connection closed&quot;</span><span class="o">);</span>
-    <span class="o">}</span>
-<span class="o">}</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Annotated Client Endpoint Example</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="nd">@ClientEndpoint</span>
-<span class="kd">public</span> <span class="kd">class</span> <span class="nc">AnnotatedClientEndpoint</span> <span class="o">{</span>
-
-    <span class="nd">@OnOpen</span>
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onOpen</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
-        <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;hi&quot;</span><span class="o">);</span>
-    <span class="o">}</span>
-
-    <span class="nd">@OnMessage</span>
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onMessage</span><span class="o">(</span><span class="kd">final</span> <span class="n">String</span> <span class="n">message</span><span class="o">,</span> <span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
-        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">message</span><span class="o">);</span>
-    <span class="o">}</span>
-<span class="o">}</span>
-</pre></div></div></div>
-<div class="sect2">
-<h3 id="_connecting_an_annotated_endpoint">Connecting an Annotated Endpoint</h3>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="n">ServerContainer</span> <span class="n">sc</span> <span class="o">=</span> <span class="n">servletContext</span><span class="o">.</span><span class="na">getAttribute</span><span class="o">(</span><span class="s">&quot;javax.websocket.server.ServerContainer&quot;</span><span class="o">);</span>
-<span class="n">Session</span> <span class="n">session</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="na">connectToServer</span><span class="o">(</span><span class="n">AnnotatedClientEndpoint</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="k">new</span> <span class="n">URI</span><span class="o">(</span><span class="s">&quot;ws://example.com/chat/Stuart&quot;</span><span class="o">));</span>
-<span class="n">Future</span><span class="o">&lt;</span><span class="n">Void</span><span class="o">&gt;</span> <span class="n">future</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;Hello Websocket&quot;</span><span class="o">);</span>
-</pre></div></div></div>
-</div>
-</section>
-<section class="slide">
-<h2>Message types</h2>
-<p>@OnMessage annotated endpoints can provide you with access to the message in a number of different ways:</p>
-<div class="sect2">
-<h3 id="_text_messages">Text messages</h3>
-<ul>
-<li class="">
-<tt>java.lang.String</tt> to receive the whole message
-</li>
-<li class="">
-Java primitive
-</li>
-<li class="">
-String and boolean pair to receive the message in parts
-</li>
-<li class="">
-<tt>java.io.Reader</tt> to receive the whole message as a blocking stream
-</li>
-<li class="">
-any object parameter for which the endpoint has a text decoder
-</li>
-</ul>
-</div>
-<div class="sect2">
-<h3 id="_binary_messages">Binary messages</h3>
-<ul>
-<li class="">
-<tt>byte[]</tt> or <tt>java.nio.ByteBuffer</tt> to receive the whole message
-</li>
-<li class="">
-<tt>byte[]</tt> or <tt>java.nio.ByteBuffer</tt> with a boolean to receive the message in parts
-</li>
-<li class="">
-<tt>java.io.InputStream</tt> to receive the whole message as a blocking stream
-</li>
-<li class="">
-Any object parameter for which the endpoint has a binary decoder
-</li>
-</ul>
-</div>
-<div class="sect2">
-<h3 id="_pong_messages">Pong messages</h3>
-<ul>
-<li class="">
-javax.websocket.PongMessage
-</li>
-</ul>
-</div>
-</section>
-<section class="slide">
-<h2>@OnMessage methods</h2>
-<ul>
-<li class="">
-An endpoint can have at most one @OnMessage annotated method for each message type (text, binary, pong)
-</li>
-<li class="">
-It must take one of the message type from the previous slide as a parameter
-</li>
-<li class="">
-If it returns a value the value will be encoded as a web socket message and sent to the client
-</li>
-<li class="">
-The <tt>@PathParam</tt> annotation can be used to inject values from the URL template
-</li>
-<li class="">
-Some message types can also be used with a boolean parameter to receive part of the message at a time
-</li>
-<li class="">
-When the boolean is <tt>false</tt> there is still more data to come
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>Encoders and decoders</h2>
-<ul>
-<li class="">
-Allow you to convert arbitrary objects to and from web socket messages
-</li>
-<li class="">
-Represented by 8 interfaces
-<ul>
-<li class="">
-<tt>javax.websocket.Decoder.Binary</tt>
-</li>
-<li class="">
-<tt>javax.websocket.Decoder.BinaryStream</tt>
-</li>
-<li class="">
-<tt>javax.websocket.Decoder.Text</tt>
-</li>
-<li class="">
-<tt>javax.websocket.Decoder.TextStream</tt>
-</li>
-<li class="">
-<tt>javax.websocket.Encoder.Text</tt>
-</li>
-<li class="">
-<tt>javax.websocket.Encoder.TextStream</tt>
-</li>
-<li class="">
-<tt>javax.websocket.Encoder.Binary</tt>
-</li>
-<li class="">
-<tt>javax.websocket.Encoder.BinaryStream</tt>
-</li>
-</ul>
-</li>
-<li class="">
-Decoder classes are specified in the <tt>@ServerEndpoint</tt> annotation
-</li>
-</ul>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="nd">@ServerEndpoint</span><span class="o">(</span><span class="n">value</span><span class="o">=</span><span class="s">&quot;/chat&quot;</span><span class="o">,</span> <span class="n">encoders</span><span class="o">={</span><span class="n">JsonEncoder</span><span class="o">.</span><span class="na">class</span><span class="o">},</span> <span class="n">decoders</span><span class="o">={</span><span class="n">JsonDecoder</span><span class="o">.</span><span class="na">class</span><span class="o">})</span>
 </pre></div></div></div>
 </section>
 <section class="slide">

@@ -40,9 +40,7 @@ Java EE 7 and Wildfly
 ///////////////////////
 //:count_nested:
 
-== Undertow
-
-== Outline
+== Undertow Presentation Outline
  * Undertow overview
  * HTTP Upgrade
  * Websockets
@@ -113,6 +111,135 @@ Connection: Upgrade
 Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 ----
 
+
+== Websockets
+
+=== Introduction
+
+ * The websocket specification allows browsers and other clients to initiate a full duplex connection to the server
+ * This connection is initiated via a HTTP upgrade request
+ * Websockets is a framed protocol, all data is sent as part of a frame
+ * Frames have a header that specifies the length and the frame type (+ some other stuff)
+ * Possible to send data of unknown length using continuation frames
+
+== Web Socket frames
+ * Websockets defines the following frame types:
+  - Text - UTF-8 text frame
+  - Binary - Raw binary data
+  - Ping - Either side can send this to verify the the other endpoint is still connected
+  - Pong - Response to a ping frame
+  - Close - Sent to indicate the connection is being closed
+  - Continuation - Continuation of a text or binary frame
+
+== The Java Web Socket API
+ * The Websocket API provides both annotated and programatic API's to send an receive Websocket messages
+ * It can act as both the server and the client
+ * It provides a means of customising deployed endpoints via the `javax.websocket.server.ServerApplicationConfig` interface
+ * Provides `Encoder` and `Decoder` interfaces, to encode objects as messages and visa versa
+
+== Annotated Server Endpoint Example
+
+[source,java]
+----
+@ServerEndpoint("/websocket/{name}") //note the URL template.
+public class HelloEndpoint {
+
+    @OnOpen //invoked when the client first connects
+    public void onOpen(final Session session) {
+        session.getAsyncRemote().sendText("hi");
+    }
+
+    @OnMessage //handles text messages
+    public String message(String message, @PathParam("name") String name) {
+        return "Hello " + name + " you sent" + message;
+    }
+}
+----
+
+== Another Annotated Server Endpoint Example
+
+[source,java]
+----
+@ServerEndpoint("/websocket/{name}") //note the URL template.
+public class HelloEndpoint {
+
+    @OnMessage //handles binary messages
+    public byte[] binaryMessage(byte[] binaryMessage) {
+        return binaryMessage; //echo binary data
+    }
+
+    @OnClose //invoked when the connection is closed
+    public void onClose(final Session session) {
+        System.out.println("Connection closed");
+    }
+}
+----
+
+== Annotated Client Endpoint Example
+
+[source,java]
+----
+@ClientEndpoint
+public class AnnotatedClientEndpoint {
+
+    @OnOpen
+    public void onOpen(final Session session) {
+        session.getAsyncRemote().sendText("hi");
+    }
+
+    @OnMessage
+    public void onMessage(final String message, final Session session) {
+        System.out.println(message);
+    }
+}
+----
+
+== Connecting an Annotated Client Endpoint
+
+[source,java]
+----
+ServerContainer sc = servletContext.getAttribute("javax.websocket.server.ServerContainer");
+Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws://example.com/chat/Stuart"));
+Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
+----
+
+== Message types
+
+@OnMessage annotated endpoints can provide you with access to the message in a number of different ways:
+
+=== Text messages
+ * `java.lang.String` or Java primitive to receive the whole message
+ * `java.io.Reader` to receive the whole message as a blocking stream
+ * any object parameter for which the endpoint has a text decoder
+
+=== Binary messages
+ * `byte[]` or `java.nio.ByteBuffer`
+ * `java.io.InputStream` to receive the whole message as a blocking stream
+ * Any object parameter for which the endpoint has a binary decoder
+
+=== Pong messages
+ * javax.websocket.PongMessage
+
+== @OnMessage methods
+ * An endpoint can have at most one @OnMessage annotated method for each message type (text, binary, pong)
+ * It must take one of the message type from the previous slide as a parameter
+ * If it returns a value the value will be encoded as a web socket message and sent to the client
+ * The `@PathParam` annotation can be used to inject values from the URL template
+ * Some message types can also be used with a boolean parameter to receive part of the message at a time
+ * When the boolean is `false` there is still more data to come
+
+== Encoders and decoders
+ * Allow you to convert arbitrary objects to and from web socket messages
+ * Represented by 8 interfaces
+  - `javax.websocket.Decoder.Binary`
+  - `javax.websocket.Decoder.BinaryStream`
+  - `javax.websocket.Decoder.Text`
+  - `javax.websocket.Decoder.TextStream`
+  - `javax.websocket.Encoder.Text`
+  - `javax.websocket.Encoder.TextStream`
+  - `javax.websocket.Encoder.Binary`
+  - `javax.websocket.Encoder.BinaryStream`
+ * Decoder classes are specified in the `@ServerEndpoint` annotation
 
 == Servlet 3.1
 
@@ -214,134 +341,6 @@ public interface WebConnection extends AutoCloseable {
 
     public ServletOutputStream getOutputStream() throws IOException;
 }
-----
-
-== Websockets
-
-=== Introduction
-
- * The websocket specification allows browsers and other clients to initiate a full duplex connection to the server
- * This connection is initiated via a HTTP upgrade request
- * Websockets is a framed protocol, all data is sent as part of a frame
- * Frames have a header that specifies the length and the frame type (+ some other stuff)
- * Possible to send data of unknown length using continuation frames
-
-== Web Socket frames
- * Websockets defines the following frame types:
-  - Text - UTF-8 text frame
-  - Binary - Raw binary data
-  - Ping - Either side can send this to verify the the other endpoint is still connected
-  - Pong - Response to a ping frame
-  - Close - Sent to indicate the connection is being closed
-  - Continuation - Continuation of a text or binary frame
-
-== The Java Web Socket API
- * The Websocket API provides both annotated and programatic API's to send an receive Websocket messages
- * It can act as both the server and the client
- * It provides a means of customising deployed endpoints via the `javax.websocket.server.ServerApplicationConfig` interface
- * Provides `Encoder` and `Decoder` interfaces, to encode objects as messages and visa versa
-
-== Annotated Server Endpoint Example
-
-[source,java]
-----
-@ServerEndpoint("/websocket/{name}") //note the URL template.
-public class HelloEndpoint {
-
-    @OnOpen //invoked when the client first connects
-    public void onOpen(final Session session) {
-        session.getAsyncRemote().sendText("hi");
-    }
-
-    @OnMessage //handles text messages
-    public String message(String message, @PathParam("name") String name) {
-        return "Hello " + name + " you sent" + message;
-    }
-
-    @OnMessage //handles binary messages
-    public byte[] binaryMessage(byte[] binaryMessage) {
-        return binaryMessage; //echo binary data
-    }
-
-    @OnClose //invoked when the connection is closed
-    public void onClose(final Session session) {
-        System.out.println("Connection closed");
-    }
-}
-----
-
-== Annotated Client Endpoint Example
-
-[source,java]
-----
-@ClientEndpoint
-public class AnnotatedClientEndpoint {
-
-    @OnOpen
-    public void onOpen(final Session session) {
-        session.getAsyncRemote().sendText("hi");
-    }
-
-    @OnMessage
-    public void onMessage(final String message, final Session session) {
-        System.out.println(message);
-    }
-}
-----
-
-=== Connecting an Annotated Endpoint
-
-[source,java]
-----
-ServerContainer sc = servletContext.getAttribute("javax.websocket.server.ServerContainer");
-Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws://example.com/chat/Stuart"));
-Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
-----
-
-== Message types
-
-@OnMessage annotated endpoints can provide you with access to the message in a number of different ways:
-
-=== Text messages
- * `java.lang.String` to receive the whole message
- * Java primitive
- * String and boolean pair to receive the message in parts
- * `java.io.Reader` to receive the whole message as a blocking stream
- * any object parameter for which the endpoint has a text decoder
-
-=== Binary messages
- * `byte[]` or `java.nio.ByteBuffer` to receive the whole message
- * `byte[]` or `java.nio.ByteBuffer` with a boolean to receive the message in parts
- * `java.io.InputStream` to receive the whole message as a blocking stream
- * Any object parameter for which the endpoint has a binary decoder
-
-=== Pong messages
- * javax.websocket.PongMessage
-
-== @OnMessage methods
- * An endpoint can have at most one @OnMessage annotated method for each message type (text, binary, pong)
- * It must take one of the message type from the previous slide as a parameter
- * If it returns a value the value will be encoded as a web socket message and sent to the client
- * The `@PathParam` annotation can be used to inject values from the URL template
- * Some message types can also be used with a boolean parameter to receive part of the message at a time
- * When the boolean is `false` there is still more data to come
-
-== Encoders and decoders
- * Allow you to convert arbitrary objects to and from web socket messages
- * Represented by 8 interfaces
-  - `javax.websocket.Decoder.Binary`
-  - `javax.websocket.Decoder.BinaryStream`
-  - `javax.websocket.Decoder.Text`
-  - `javax.websocket.Decoder.TextStream`
-  - `javax.websocket.Encoder.Text`
-  - `javax.websocket.Encoder.TextStream`
-  - `javax.websocket.Encoder.Binary`
-  - `javax.websocket.Encoder.BinaryStream`
- * Decoder classes are specified in the `@ServerEndpoint` annotation
-
-[source,java]
-----
-@ServerEndpoint(value="/chat", encoders={JsonEncoder.class}, decoders={JsonDecoder.class})
 ----
 
 == Get Involved!
