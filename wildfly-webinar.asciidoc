@@ -44,6 +44,7 @@ Java EE 7 and Wildfly
 
 == Outline
  * Undertow overview
+ * HTTP Upgrade
  * Websockets
  * Servlet 3.1
  * Embedded Undertow
@@ -52,7 +53,7 @@ Java EE 7 and Wildfly
 == Undertow
 
  * New webserver project integrated in WildFly 8
- * Servlet container
+ * Servlet 3.1 container
  * Server for HTTP management interface
  * HTTP Upgrade
  * /subsystem=undertow instead of /subsystem=web
@@ -61,11 +62,57 @@ Java EE 7 and Wildfly
  * A true non-blocking API (servlet is by itself insufficient)
  * Improved support for modern security standards
  * Upgrade from HTTP to our native protocols
- * future one-port mode
+ * Future one-port mode
  * Support the latest network protocols naturally and with minimal overhead
  * Best possible performance and memory efficiency
  * Handle complex routing use cases a la mod_rewrite
  * Embeddable in standalone process / test environment
+
+== HTTP Upgrade
+
+=== What is it
+
+ * HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
+ * Standard mechanism defined in the HTTP/1.1 RFC, most common use is to initiate a websocket connection
+ * A HTTP client sends a request with the `Upgrade:` header to initiate the connection.
+ * If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
+whatever handles the upgraded protocol.
+
+=== Why use it?
+
+ * It allows you to multiplex multiple protocols over the HTTP port
+ * Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
+ * Removes need to configure multiple ports
+
+== Port Reduction
+
+ * Thanks to HTTP Upgrade we have managed to reduce the number of ports in the default Wildfly installation to 3
+ * This will be down to 2 by the time Wildfly goes final
+ * At some point we will offer a single port mode, to allow all server traffic to go through a single port
+ * This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
+
+== HTTP Upgrade - Web Socket example
+
+=== Client Request
+
+----
+GET / HTTP/1.1
+Host: example.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+----
+
+=== Server Response
+
+----
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+----
+
 
 == Servlet 3.1
 
@@ -119,49 +166,8 @@ protected void doGet(final HttpServletRequest req, final HttpServletResponse res
             }
             if (pos == messages.length()) context.complete();
         }
-        @Override
-        public void onError(final Throwable t) {
-            //error handling
-        }
     });
 }
-----
-
-== HTTP Upgrade
-
-=== What is it
-
- * HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
- * A HTTP client sends a request with the `Upgrade:` header to initiate the connection.
- * If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
-whatever handles the upgraded protocol.
-
-=== Why use it?
-
- * It allows you to multiplex multiple protocols over the HTTP port
- * Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
- * Removes need to configure multiple ports
-
-== HTTP Upgrade - Web Socket example
-
-=== Client Request
-
-----
-GET / HTTP/1.1
-Host: example.com
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
-Sec-WebSocket-Version: 13
-----
-
-=== Server Response
-
-----
-HTTP/1.1 101 Switching Protocols
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 ----
 
 == The Servlet Upgrade API
