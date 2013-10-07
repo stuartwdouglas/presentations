@@ -46,7 +46,7 @@ Java EE 7 and Wildfly
  * Websockets
  * Servlet 3.1
  * Embedded Undertow
- * Undertow extensions
+ * Undertow Extensions
 
 == Undertow
 
@@ -82,35 +82,36 @@ whatever handles the upgraded protocol.
  * Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
  * Removes need to configure multiple ports
 
-== Port Reduction
+== Usage In Wildfly
 
  * Thanks to HTTP Upgrade we have managed to reduce the number of ports in the default Wildfly installation to 3
  * This will be down to 2 by the time Wildfly goes final
+ * EJB and JNDI are multiplexed over the undertow subsystem port 8080
+ * Management is multiplexed over the web management port 9990
  * At some point we will offer a single port mode, to allow all server traffic to go through a single port
  * This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
+ * The only performance overhead is the initial HTTP request, otherwise it performs identically
 
-== HTTP Upgrade - Web Socket example
+== HTTP Upgrade - EJB example
 
 === Client Request
 
 ----
 GET / HTTP/1.1
 Host: example.com
-Upgrade: websocket
+Upgrade: jboss-remoting
 Connection: Upgrade
-Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
-Sec-WebSocket-Version: 13
+Sec-JbossRemoting-Key: dGhlIHNhbXBsZSBub25jZQ==
 ----
 
 === Server Response
 
 ----
 HTTP/1.1 101 Switching Protocols
-Upgrade: websocket
+Upgrade: jboss-remoting
 Connection: Upgrade
-Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+Sec-JbossRemoting-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 ----
-
 
 == Websockets
 
@@ -122,14 +123,11 @@ Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
  * Frames have a header that specifies the length and the frame type (+ some other stuff)
  * Possible to send data of unknown length using continuation frames
 
-== Web Socket frames
- * Websockets defines the following frame types:
-  - Text - UTF-8 text frame
-  - Binary - Raw binary data
-  - Ping - Either side can send this to verify the the other endpoint is still connected
-  - Pong - Response to a ping frame
-  - Close - Sent to indicate the connection is being closed
-  - Continuation - Continuation of a text or binary frame
+== Wildfly websocket support
+
+ * Wildfly supports websockets using Undertow's websocket implementation
+ * Provides support for the standard Java Web Socket API (JSR-356, a required part of EE7)
+ * Because of this frameworks such as Atmosphere that use JSR-356 work out of the box
 
 == The Java Web Socket API
  * The Websocket API provides both annotated and programatic API's to send an receive Websocket messages
@@ -203,6 +201,16 @@ Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws:
 Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
 ----
 
+== Web Socket frames
+
+ * Websockets defines the following frame types:
+  - Text - UTF-8 text frame
+  - Binary - Raw binary data
+  - Ping - Either side can send this to verify the the other endpoint is still connected
+  - Pong - Response to a ping frame
+  - Close - Sent to indicate the connection is being closed
+  - Continuation - Continuation of a text or binary frame
+
 == Message types
 
 @OnMessage annotated endpoints can provide you with access to the message in a number of different ways:
@@ -242,6 +250,8 @@ Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
  * Decoder classes are specified in the `@ServerEndpoint` annotation
 
 == Servlet 3.1
+
+ * Undertow provides a fully compliant Servlet 3.1 container
 
 === Notable Changes
  * Async IO Support
@@ -315,7 +325,6 @@ public class MyProtocolUpgradeFilter implements Filter {
         HttpServletRequest req = (HttpServletRequest) request;
         if("my-protocol".equals(req.getHeader("Upgrade"))) {
             HttpServletResponse resp = (HttpServletResponse) response;
-            resp.setHeader("Connection", "upgrade");
             resp.setHeader("Upgrade", "my-protocol");
             req.upgrade(MyProtocolHandler.class);
             return;
@@ -342,6 +351,11 @@ public interface WebConnection extends AutoCloseable {
     public ServletOutputStream getOutputStream() throws IOException;
 }
 ----
+
+== Servlet Extensions
+ * Undertow provides the ability to customise a deployment via the `io.undertow.servlet.ServletExtension` interface
+ * Similar to a `ServletContainerInitializer` but more flexible, as any part of the deployment can be changed
+ * Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
 
 == Get Involved!
  *  www.wildfly.org
