@@ -6,7 +6,7 @@
         <title>Java EE 7 and Wildfly</title>
         <meta name="viewport" content="width=1024, user-scalable=no">
         <meta name="author" content="Stuart Douglas" />
-        <meta name="generator" content="AsciiDoc 8.6.7" />
+        <meta name="generator" content="AsciiDoc 8.6.8" />
         
         <!-- Core and extension CSS files -->
 <style type="text/css">
@@ -2486,7 +2486,7 @@ Servlet 3.1
 Embedded Undertow
 </li>
 <li class="">
-Undertow extensions
+Undertow Extensions
 </li>
 </ul>
 </section>
@@ -2551,7 +2551,7 @@ HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
 Standard mechanism defined in the HTTP/1.1 RFC, most common use is to initiate a websocket connection
 </li>
 <li class="">
-A HTTP client sends a request with the <tt>Upgrade:</tt> header to initiate the connection.
+A HTTP client sends a request with the <code>Upgrade:</code> header to initiate the connection.
 </li>
 <li class="">
 If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
@@ -2575,7 +2575,7 @@ Removes need to configure multiple ports
 </div>
 </section>
 <section class="slide">
-<h2>Port Reduction</h2>
+<h2>Usage In Wildfly</h2>
 <ul>
 <li class="">
 Thanks to HTTP Upgrade we have managed to reduce the number of ports in the default Wildfly installation to 3
@@ -2584,25 +2584,33 @@ Thanks to HTTP Upgrade we have managed to reduce the number of ports in the defa
 This will be down to 2 by the time Wildfly goes final
 </li>
 <li class="">
+EJB and JNDI are multiplexed over the undertow subsystem port 8080
+</li>
+<li class="">
+Management is multiplexed over the web management port 9990
+</li>
+<li class="">
 At some point we will offer a single port mode, to allow all server traffic to go through a single port
 </li>
 <li class="">
 This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
 </li>
+<li class="">
+The only performance overhead is the initial HTTP request, otherwise it performs identically
+</li>
 </ul>
 </section>
 <section class="slide">
-<h2>HTTP Upgrade - Web Socket example</h2>
+<h2>HTTP Upgrade - EJB example</h2>
 <div class="sect2">
 <h3 id="_client_request">Client Request</h3>
 <div class="listingblock">
 <div class="content">
 <pre><tt>GET / HTTP/1.1
 Host: example.com
-Upgrade: websocket
+Upgrade: jboss-remoting
 Connection: Upgrade
-Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
-Sec-WebSocket-Version: 13</tt></pre>
+Sec-JbossRemoting-Key: dGhlIHNhbXBsZSBub25jZQ==</tt></pre>
 </div></div>
 </div>
 <div class="sect2">
@@ -2610,9 +2618,9 @@ Sec-WebSocket-Version: 13</tt></pre>
 <div class="listingblock">
 <div class="content">
 <pre><tt>HTTP/1.1 101 Switching Protocols
-Upgrade: websocket
+Upgrade: jboss-remoting
 Connection: Upgrade
-Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</tt></pre>
+Sec-JbossRemoting-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</tt></pre>
 </div></div>
 </div>
 </section>
@@ -2640,30 +2648,16 @@ Possible to send data of unknown length using continuation frames
 </div>
 </section>
 <section class="slide">
-<h2>Web Socket frames</h2>
+<h2>Wildfly websocket support</h2>
 <ul>
 <li class="">
-Websockets defines the following frame types:
-<ul>
-<li class="">
-Text - UTF-8 text frame
+Wildfly supports websockets using Undertow&#8217;s websocket implementation
 </li>
 <li class="">
-Binary - Raw binary data
+Provides support for the standard Java Web Socket API (JSR-356, a required part of EE7)
 </li>
 <li class="">
-Ping - Either side can send this to verify the the other endpoint is still connected
-</li>
-<li class="">
-Pong - Response to a ping frame
-</li>
-<li class="">
-Close - Sent to indicate the connection is being closed
-</li>
-<li class="">
-Continuation - Continuation of a text or binary frame
-</li>
-</ul>
+Because of this frameworks such as Atmosphere that use JSR-356 work out of the box
 </li>
 </ul>
 </section>
@@ -2677,10 +2671,10 @@ The Websocket API provides both annotated and programatic API&#8217;s to send an
 It can act as both the server and the client
 </li>
 <li class="">
-It provides a means of customising deployed endpoints via the <tt>javax.websocket.server.ServerApplicationConfig</tt> interface
+It provides a means of customising deployed endpoints via the <code>javax.websocket.server.ServerApplicationConfig</code> interface
 </li>
 <li class="">
-Provides <tt>Encoder</tt> and <tt>Decoder</tt> interfaces, to encode objects as messages and visa versa
+Provides <code>Encoder</code> and <code>Decoder</code> interfaces, to encode objects as messages and visa versa
 </li>
 </ul>
 </section>
@@ -2747,16 +2741,44 @@ Provides <tt>Encoder</tt> and <tt>Decoder</tt> interfaces, to encode objects as 
 </pre></div></div></div>
 </section>
 <section class="slide">
+<h2>Web Socket frames</h2>
+<ul>
+<li class="">
+Websockets defines the following frame types:
+<ul>
+<li class="">
+Text - UTF-8 text frame
+</li>
+<li class="">
+Binary - Raw binary data
+</li>
+<li class="">
+Ping - Either side can send this to verify the the other endpoint is still connected
+</li>
+<li class="">
+Pong - Response to a ping frame
+</li>
+<li class="">
+Close - Sent to indicate the connection is being closed
+</li>
+<li class="">
+Continuation - Continuation of a text or binary frame
+</li>
+</ul>
+</li>
+</ul>
+</section>
+<section class="slide">
 <h2>Message types</h2>
 <p>@OnMessage annotated endpoints can provide you with access to the message in a number of different ways:</p>
 <div class="sect2">
 <h3 id="_text_messages">Text messages</h3>
 <ul>
 <li class="">
-<tt>java.lang.String</tt> or Java primitive to receive the whole message
+<code>java.lang.String</code> or Java primitive to receive the whole message
 </li>
 <li class="">
-<tt>java.io.Reader</tt> to receive the whole message as a blocking stream
+<code>java.io.Reader</code> to receive the whole message as a blocking stream
 </li>
 <li class="">
 any object parameter for which the endpoint has a text decoder
@@ -2767,10 +2789,10 @@ any object parameter for which the endpoint has a text decoder
 <h3 id="_binary_messages">Binary messages</h3>
 <ul>
 <li class="">
-<tt>byte[]</tt> or <tt>java.nio.ByteBuffer</tt>
+<code>byte[]</code> or <code>java.nio.ByteBuffer</code>
 </li>
 <li class="">
-<tt>java.io.InputStream</tt> to receive the whole message as a blocking stream
+<code>java.io.InputStream</code> to receive the whole message as a blocking stream
 </li>
 <li class="">
 Any object parameter for which the endpoint has a binary decoder
@@ -2799,13 +2821,13 @@ It must take one of the message type from the previous slide as a parameter
 If it returns a value the value will be encoded as a web socket message and sent to the client
 </li>
 <li class="">
-The <tt>@PathParam</tt> annotation can be used to inject values from the URL template
+The <code>@PathParam</code> annotation can be used to inject values from the URL template
 </li>
 <li class="">
 Some message types can also be used with a boolean parameter to receive part of the message at a time
 </li>
 <li class="">
-When the boolean is <tt>false</tt> there is still more data to come
+When the boolean is <code>false</code> there is still more data to come
 </li>
 </ul>
 </section>
@@ -2819,38 +2841,43 @@ Allow you to convert arbitrary objects to and from web socket messages
 Represented by 8 interfaces
 <ul>
 <li class="">
-<tt>javax.websocket.Decoder.Binary</tt>
+<code>javax.websocket.Decoder.Binary</code>
 </li>
 <li class="">
-<tt>javax.websocket.Decoder.BinaryStream</tt>
+<code>javax.websocket.Decoder.BinaryStream</code>
 </li>
 <li class="">
-<tt>javax.websocket.Decoder.Text</tt>
+<code>javax.websocket.Decoder.Text</code>
 </li>
 <li class="">
-<tt>javax.websocket.Decoder.TextStream</tt>
+<code>javax.websocket.Decoder.TextStream</code>
 </li>
 <li class="">
-<tt>javax.websocket.Encoder.Text</tt>
+<code>javax.websocket.Encoder.Text</code>
 </li>
 <li class="">
-<tt>javax.websocket.Encoder.TextStream</tt>
+<code>javax.websocket.Encoder.TextStream</code>
 </li>
 <li class="">
-<tt>javax.websocket.Encoder.Binary</tt>
+<code>javax.websocket.Encoder.Binary</code>
 </li>
 <li class="">
-<tt>javax.websocket.Encoder.BinaryStream</tt>
+<code>javax.websocket.Encoder.BinaryStream</code>
 </li>
 </ul>
 </li>
 <li class="">
-Decoder classes are specified in the <tt>@ServerEndpoint</tt> annotation
+Decoder classes are specified in the <code>@ServerEndpoint</code> annotation
 </li>
 </ul>
 </section>
 <section class="slide">
 <h2>Servlet 3.1</h2>
+<ul>
+<li class="">
+Undertow provides a fully compliant Servlet 3.1 container
+</li>
+</ul>
 <div class="sect2">
 <h3 id="_notable_changes">Notable Changes</h3>
 <ul>
@@ -2911,22 +2938,22 @@ Non-blocking code is generally more complex to write than blocking code
 Call ServletRequest.startAsync() to put the request into async mode
 </li>
 <li class="">
-Call <tt>ServletOutputStream.setWriteListener(WriteListener writeListener)</tt> to put the stream into async mode
+Call <code>ServletOutputStream.setWriteListener(WriteListener writeListener)</code> to put the stream into async mode
 </li>
 <li class="">
 The write listener will be invoked after the current request has returned to the container
 </li>
 <li class="">
-You <strong>must</strong> call <tt>ServletOutputStream.isReady()</tt> before calling <tt>write()</tt>
+You <strong>must</strong> call <code>ServletOutputStream.isReady()</code> before calling <code>write()</code>
 </li>
 <li class="">
-When <tt>isReady()</tt> returns true you can call <tt>write()</tt>
+When <code>isReady()</code> returns true you can call <code>write()</code>
 </li>
 <li class="">
-If the socket cannot write out all the data it will be queued, <tt>write()</tt> will always return immediately
+If the socket cannot write out all the data it will be queued, <code>write()</code> will always return immediately
 </li>
 <li class="">
-When <tt>isReady()</tt> return false then you cannot write, you must return and the write listener will be invoked again
+When <code>isReady()</code> return false then you cannot write, you must return and the write listener will be invoked again
  once the stream is ready to write.
 </li>
 </ul>
@@ -2956,17 +2983,17 @@ When <tt>isReady()</tt> return false then you cannot write, you must return and 
 <h2>The Servlet Upgrade API</h2>
 <ul>
 <li class="">
-To upgrade the request we call <tt>&lt;T extends HttpUpgradeHandler&gt; T HttpServletRequest.upgrade(Class&lt;T&gt; handlerClass)</tt>
+To upgrade the request we call <code>&lt;T extends HttpUpgradeHandler&gt; T HttpServletRequest.upgrade(Class&lt;T&gt; handlerClass)</code>
 </li>
 <li class="">
-We are still responsible for checking for the <tt>Upgrade</tt> header, and setting and appropriate response headers
+We are still responsible for checking for the <code>Upgrade</code> header, and setting and appropriate response headers
 </li>
 <li class="">
-Once the request is finished the resulting <tt>HttpUpgradeHandler</tt> will take over the connection, and can send and receive
-  data via the provided <tt>WebConnection</tt> and its associated streams.
+Once the request is finished the resulting <code>HttpUpgradeHandler</code> will take over the connection, and can send and receive
+  data via the provided <code>WebConnection</code> and its associated streams.
 </li>
 <li class="">
-Upgraded connection can use the async IO capabilites of <tt>ServletInputStream</tt> and <tt>ServletOutputStream</tt>
+Upgraded connection can use the async IO capabilites of <code>ServletInputStream</code> and <code>ServletOutputStream</code>
 </li>
 </ul>
 </section>
@@ -2980,7 +3007,6 @@ Upgraded connection can use the async IO capabilites of <tt>ServletInputStream</
         <span class="n">HttpServletRequest</span> <span class="n">req</span> <span class="o">=</span> <span class="o">(</span><span class="n">HttpServletRequest</span><span class="o">)</span> <span class="n">request</span><span class="o">;</span>
         <span class="k">if</span><span class="o">(</span><span class="s">&quot;my-protocol&quot;</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">req</span><span class="o">.</span><span class="na">getHeader</span><span class="o">(</span><span class="s">&quot;Upgrade&quot;</span><span class="o">)))</span> <span class="o">{</span>
             <span class="n">HttpServletResponse</span> <span class="n">resp</span> <span class="o">=</span> <span class="o">(</span><span class="n">HttpServletResponse</span><span class="o">)</span> <span class="n">response</span><span class="o">;</span>
-            <span class="n">resp</span><span class="o">.</span><span class="na">setHeader</span><span class="o">(</span><span class="s">&quot;Connection&quot;</span><span class="o">,</span> <span class="s">&quot;upgrade&quot;</span><span class="o">);</span>
             <span class="n">resp</span><span class="o">.</span><span class="na">setHeader</span><span class="o">(</span><span class="s">&quot;Upgrade&quot;</span><span class="o">,</span> <span class="s">&quot;my-protocol&quot;</span><span class="o">);</span>
             <span class="n">req</span><span class="o">.</span><span class="na">upgrade</span><span class="o">(</span><span class="n">MyProtocolHandler</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
             <span class="k">return</span><span class="o">;</span>
@@ -3007,6 +3033,20 @@ Upgraded connection can use the async IO capabilites of <tt>ServletInputStream</
     <span class="kd">public</span> <span class="n">ServletOutputStream</span> <span class="nf">getOutputStream</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">;</span>
 <span class="o">}</span>
 </pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Servlet Extensions</h2>
+<ul>
+<li class="">
+Undertow provides the ability to customise a deployment via the <code>io.undertow.servlet.ServletExtension</code> interface
+</li>
+<li class="">
+Similar to a <code>ServletContainerInitializer</code> but more flexible, as any part of the deployment can be changed
+</li>
+<li class="">
+Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
+</li>
+</ul>
 </section>
 <section class="slide">
 <h2>Get Involved!</h2>
