@@ -1,5 +1,5 @@
-Java EE 7 and Wildfly
-=====================
+Undertow
+========
 :author: Stuart Douglas
 :email: <stuart.w.douglas@gmail.com>
 ///////////////////////
