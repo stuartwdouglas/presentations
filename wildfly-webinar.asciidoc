@@ -45,6 +45,7 @@ Java EE 7 and Wildfly
  * HTTP Upgrade
  * Websockets
  * Servlet 3.1
+ * Reverse Proxy
  * Embedded Undertow
  * Undertow Extensions
 
@@ -351,6 +352,32 @@ public interface WebConnection extends AutoCloseable {
     public ServletOutputStream getOutputStream() throws IOException;
 }
 ----
+
+== Reverse Proxy
+
+ * Undertow has the ability to act as a high performance reverse proxy
+ * Handles both AJP and HTTP backends
+ * Supports round robin load balancing
+ * Support for mod_cluster is planned
+ * Still under heavy development
+
+== Setting up the reverse proxy
+
+ * CLI commands to proxy /my-app to two other servers
+
+----
+/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy:add
+/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy/host=ajp\:\/\/10.0.0.1\/my-app:add
+/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy/host=http\:\/\/10.0.0.2\/my-app:add
+/subsystem=undertow/server=default-server/host=default-host/location=\/my-app:add(handler=my-reverse-proxy)
+----
+
+== Embedded Undertow
+
+ * Undertow has been designed to be easy to embed
+ * Has a fluent API that makes it easy to build and deploy servlet applications
+ * This API is exactly the same API that Wildfly uses to integrate Undertow
+
 
 == Servlet Extensions
  * Undertow provides the ability to customise a deployment via the `io.undertow.servlet.ServletExtension` interface
