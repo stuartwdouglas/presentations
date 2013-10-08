@@ -2483,6 +2483,9 @@ Websockets
 Servlet 3.1
 </li>
 <li class="">
+Reverse Proxy
+</li>
+<li class="">
 Embedded Undertow
 </li>
 <li class="">
@@ -3033,6 +3036,55 @@ Upgraded connection can use the async IO capabilites of <code>ServletInputStream
     <span class="kd">public</span> <span class="n">ServletOutputStream</span> <span class="nf">getOutputStream</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">;</span>
 <span class="o">}</span>
 </pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Reverse Proxy</h2>
+<ul>
+<li class="">
+Undertow has the ability to act as a high performance reverse proxy
+</li>
+<li class="">
+Handles both AJP and HTTP backends
+</li>
+<li class="">
+Supports round robin load balancing
+</li>
+<li class="">
+Support for mod_cluster is planned
+</li>
+<li class="">
+Still under heavy development
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Setting up the reverse proxy</h2>
+<ul>
+<li class="">
+CLI commands to proxy /my-app to two other servers
+</li>
+</ul>
+<div class="listingblock">
+<div class="content">
+<pre><tt>/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy:add
+/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy/host=ajp\:\/\/10.0.0.1\/my-app:add
+/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy/host=http\:\/\/10.0.0.2\/my-app:add
+/subsystem=undertow/server=default-server/host=default-host/location=\/my-app:add(handler=my-reverse-proxy)</tt></pre>
+</div></div>
+</section>
+<section class="slide">
+<h2>Embedded Undertow</h2>
+<ul>
+<li class="">
+Undertow has been designed to be easy to embed
+</li>
+<li class="">
+Has a fluent API that makes it easy to build and deploy servlet applications
+</li>
+<li class="">
+This API is exactly the same API that Wildfly uses to integrate Undertow
+</li>
+</ul>
 </section>
 <section class="slide">
 <h2>Servlet Extensions</h2>
