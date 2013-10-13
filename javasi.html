@@ -2471,7 +2471,10 @@ This module splits a long slide into multiple slides.
 <h2>Undertow Presentation Outline</h2>
 <ul>
 <li class="">
-Undertow overview
+Undertow Overview
+</li>
+<li class="">
+Undertow Architecture
 </li>
 <li class="">
 HTTP Upgrade
@@ -2497,19 +2500,19 @@ Undertow Extensions
 <h2>Undertow</h2>
 <ul>
 <li class="">
-New webserver project integrated in WildFly 8
+New webserver project integrated in WildFly 8 (The server formerly known as JBoss Application Server)
 </li>
 <li class="">
 Servlet 3.1 container
 </li>
 <li class="">
-Server for HTTP management interface
+Websocket implementation
 </li>
 <li class="">
-HTTP Upgrade
+Supports HTTP Upgrade
 </li>
 <li class="">
-/subsystem=undertow instead of /subsystem=web
+Supports the use of high performance non-blocking handlers in servlet deployments
 </li>
 </ul>
 </section>
@@ -2526,7 +2529,7 @@ Improved support for modern security standards
 Upgrade from HTTP to our native protocols
 </li>
 <li class="">
-Future one-port mode
+Will allow wildfly to run in single port mode
 </li>
 <li class="">
 Support the latest network protocols naturally and with minimal overhead
@@ -2541,6 +2544,121 @@ Handle complex routing use cases a la mod_rewrite
 Embeddable in standalone process / test environment
 </li>
 </ul>
+</section>
+<section class="slide">
+<h2>Undertow Architecture</h2>
+<ul>
+<li class="">
+An Undertow server instance is composed of one or more connectors, and a handler chain
+</li>
+<li class="">
+The connectors handle incoming requests using async IO
+</li>
+<li class="">
+Once a request is fully parsed it is passed off to the handler chain
+</li>
+<li class="">
+All functionality is implemented by chaining handlers together
+</li>
+<li class="">
+Undertow is based on XNIO, which is a thin layer over Java NIO
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Undertow Architecture Diagram</h2>
+<div class="literalblock">
+<div class="content">
+<pre><tt>TODO: insert diagram</tt></pre>
+</div></div>
+</section>
+<section class="slide">
+<h2>The HttpHandler interface</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">HttpHandler</span> <span class="o">{</span>
+    <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>The Server</h2>
+<div class="sect2">
+<h3 id="_http_handlers">HTTP Handlers</h3>
+<ul>
+<li class="">
+Handlers perform actions on the exchange, e.g. setting headers, writing a response etc
+</li>
+<li class="">
+The Undertow Servlet implementation is implemented as a series of handlers
+</li>
+<li class="">
+The security implementation is also a series of handlers, most of which is usable outside of Servlet
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_the_httpserverexchange">The HttpServerExchange</h3>
+<ul>
+<li class="">
+Represents both the request and the response
+</li>
+<li class="">
+Lets you get/set headers, write response etc
+</li>
+<li class="">
+Can have arbitrary data attached to it via the use of attachments
+</li>
+<li class="">
+Can read/write request/response via blocking or non-blocking IO
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Blocking and Non Blocking IO</h2>
+<ul>
+<li class="">
+Initially handlers are run in an IO thread, they cannot perform blocking actions
+</li>
+<li class="">
+An exchange can be dispatched to an executor in order to allow it to perform blocking tasks
+</li>
+<li class="">
+By default an exchange will use non-blocking IO, unless the <code>startBlocking()</code> method has been called
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Non Blocking Hello World Example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="n">Undertow</span> <span class="n">server</span> <span class="o">=</span> <span class="n">Undertow</span><span class="o">.</span><span class="na">builder</span><span class="o">()</span>
+        <span class="o">.</span><span class="na">addListener</span><span class="o">(</span><span class="mi">8080</span><span class="o">,</span> <span class="s">&quot;localhost&quot;</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setHandler</span><span class="o">(</span><span class="k">new</span> <span class="n">HttpHandler</span><span class="o">()</span> <span class="o">{</span>
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+                <span class="n">exchange</span><span class="o">.</span><span class="na">getResponseHeaders</span><span class="o">().</span><span class="na">put</span><span class="o">(</span><span class="n">Headers</span><span class="o">.</span><span class="na">CONTENT_TYPE</span><span class="o">,</span> <span class="s">&quot;text/plain&quot;</span><span class="o">);</span>
+                <span class="n">exchange</span><span class="o">.</span><span class="na">getResponseSender</span><span class="o">().</span><span class="na">send</span><span class="o">(</span><span class="s">&quot;Hello World&quot;</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}).</span><span class="na">build</span><span class="o">();</span>
+<span class="n">server</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Blocking Hello World Example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">class</span> <span class="nc">BlockingHelloWorld</span> <span class="kd">implements</span> <span class="n">HttpHandler</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+            <span class="k">if</span><span class="o">(</span><span class="n">exchange</span><span class="o">.</span><span class="na">isInIoThread</span><span class="o">())</span> <span class="o">{</span> <span class="c1">//check if we are in the IO thread</span>
+                <span class="n">exchange</span><span class="o">.</span><span class="na">dispatch</span><span class="o">(</span><span class="k">this</span><span class="o">);</span> <span class="c1">//execute this handler using the default worker executor</span>
+                <span class="k">return</span><span class="o">;</span>
+            <span class="o">}</span>
+            <span class="n">exchange</span><span class="o">.</span><span class="na">startBlocking</span><span class="o">();</span> <span class="c1">//switch to blocking IO</span>
+            <span class="n">exchange</span><span class="o">.</span><span class="na">getResponseHeaders</span><span class="o">().</span><span class="na">put</span><span class="o">(</span><span class="n">Headers</span><span class="o">.</span><span class="na">CONTENT_TYPE</span><span class="o">,</span> <span class="s">&quot;text/plain&quot;</span><span class="o">);</span>
+            <span class="n">exchange</span><span class="o">.</span><span class="na">getOutputStream</span><span class="o">().</span><span class="na">write</span><span class="o">(</span><span class="s">&quot;Hello World&quot;</span><span class="o">.</span><span class="na">getBytes</span><span class="o">());</span>
+        <span class="o">}</span>
+<span class="o">}</span>
+</pre></div></div></div>
 </section>
 <section class="slide">
 <h2>HTTP Upgrade</h2>
@@ -2558,7 +2676,7 @@ A HTTP client sends a request with the <code>Upgrade:</code> header to initiate 
 </li>
 <li class="">
 If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
-whatever handles the upgraded protocol.
+whatever handles the upgraded protocol
 </li>
 </ul>
 </div>
@@ -2578,10 +2696,10 @@ Removes need to configure multiple ports
 </div>
 </section>
 <section class="slide">
-<h2>Usage In Wildfly</h2>
+<h2>Why is this important?</h2>
 <ul>
 <li class="">
-Thanks to HTTP Upgrade we have managed to reduce the number of ports in the default Wildfly installation to 3
+This allowed us to reduce the number of ports in the default Wildfly installation to 3
 </li>
 <li class="">
 This will be down to 2 by the time Wildfly goes final
@@ -2604,7 +2722,33 @@ The only performance overhead is the initial HTTP request, otherwise it performs
 </ul>
 </section>
 <section class="slide">
-<h2>HTTP Upgrade - EJB example</h2>
+<h2>HTTP Upgrade Code Example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="n">String</span> <span class="n">upgrade</span> <span class="o">=</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getRequestHeaders</span><span class="o">().</span><span class="na">getFirst</span><span class="o">(</span><span class="n">Headers</span><span class="o">.</span><span class="na">UPGRADE</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">upgrade</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getRequestMethod</span><span class="o">().</span><span class="na">equals</span><span class="o">(</span><span class="n">Methods</span><span class="o">.</span><span class="na">GET</span><span class="o">))</span> <span class="o">{</span>
+        <span class="k">if</span><span class="o">(</span><span class="n">upgrade</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="s">&quot;jboss-remoting&quot;</span><span class="o">))</span> <span class="o">{</span>
+            <span class="n">exchange</span><span class="o">.</span><span class="na">upgradeChannel</span><span class="o">(</span><span class="s">&quot;jboss-remoting&quot;</span><span class="o">,</span> <span class="k">new</span> <span class="n">ExchangeCompletionListener</span><span class="o">()</span> <span class="o">{</span>
+                <span class="nd">@Override</span>
+                <span class="kd">public</span> <span class="kt">void</span> <span class="nf">exchangeEvent</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">,</span> <span class="kd">final</span> <span class="n">NextListener</span> <span class="n">nextListener</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">try</span> <span class="o">{</span>
+                        <span class="n">StreamConnection</span> <span class="n">connection</span> <span class="o">=</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getConnection</span><span class="o">().</span><span class="na">upgradeChannel</span><span class="o">();</span>
+                        <span class="c1">//do stuff with our upgraded connection</span>
+                    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                        <span class="n">UndertowLogger</span><span class="o">.</span><span class="na">REQUEST_LOGGER</span><span class="o">.</span><span class="na">cannotUpgradeConnection</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="n">next</span><span class="o">.</span><span class="na">handleRequest</span><span class="o">(</span><span class="n">exchange</span><span class="o">);</span>
+<span class="o">}</span>
+<span class="n">next</span><span class="o">.</span><span class="na">handleRequest</span><span class="o">(</span><span class="n">exchange</span><span class="o">);</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>HTTP Upgrade - Wildfly EJB example</h2>
 <div class="sect2">
 <h3 id="_client_request">Client Request</h3>
 <div class="listingblock">
@@ -2612,8 +2756,7 @@ The only performance overhead is the initial HTTP request, otherwise it performs
 <pre><tt>GET / HTTP/1.1
 Host: example.com
 Upgrade: jboss-remoting
-Connection: Upgrade
-Sec-JbossRemoting-Key: dGhlIHNhbXBsZSBub25jZQ==</tt></pre>
+Connection: Upgrade</tt></pre>
 </div></div>
 </div>
 <div class="sect2">
@@ -2622,8 +2765,7 @@ Sec-JbossRemoting-Key: dGhlIHNhbXBsZSBub25jZQ==</tt></pre>
 <div class="content">
 <pre><tt>HTTP/1.1 101 Switching Protocols
 Upgrade: jboss-remoting
-Connection: Upgrade
-Sec-JbossRemoting-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=</tt></pre>
+Connection: Upgrade</tt></pre>
 </div></div>
 </div>
 </section>
@@ -3059,21 +3201,20 @@ Still under heavy development
 </section>
 <section class="slide">
 <h2>Setting up the reverse proxy</h2>
-<ul>
-<li class="">
-CLI commands to proxy /my-app to two other servers
-</li>
-</ul>
 <div class="listingblock">
-<div class="content">
-<pre><tt>/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy:add
-/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy/host=ajp\:\/\/10.0.0.1\/my-app:add
-/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy/host=http\:\/\/10.0.0.2\/my-app:add
-/subsystem=undertow/server=default-server/host=default-host/location=\/my-app:add(handler=my-reverse-proxy)</tt></pre>
-</div></div>
+<div class="content"><div class="highlight"><pre><span class="n">Undertow</span> <span class="n">server</span> <span class="o">=</span> <span class="n">Undertow</span><span class="o">.</span><span class="na">builder</span><span class="o">()</span>
+        <span class="o">.</span><span class="na">addListener</span><span class="o">(</span><span class="mi">8080</span><span class="o">,</span> <span class="s">&quot;localhost&quot;</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setHandler</span><span class="o">(</span><span class="k">new</span> <span class="n">ProxyHandler</span><span class="o">(</span><span class="k">new</span> <span class="n">LoadBalancingProxyClient</span><span class="o">()</span>
+            <span class="o">.</span><span class="na">setConnectionsPerThread</span><span class="o">(</span><span class="mi">20</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">addHost</span><span class="o">(</span><span class="k">new</span> <span class="n">URI</span><span class="o">(</span><span class="s">&quot;http&quot;</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="s">&quot;1.0.0.1&quot;</span><span class="o">,</span> <span class="mi">8080</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="kc">null</span><span class="o">))</span>
+            <span class="o">.</span><span class="na">addHost</span><span class="o">(</span><span class="k">new</span> <span class="n">URI</span><span class="o">(</span><span class="s">&quot;http&quot;</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="s">&quot;1.0.0.2&quot;</span><span class="o">,</span> <span class="mi">8080</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="kc">null</span><span class="o">))</span>
+            <span class="o">,</span> <span class="mi">10000</span><span class="o">))</span>
+        <span class="o">.</span><span class="na">build</span><span class="o">();</span>
+<span class="n">server</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+</pre></div></div></div>
 </section>
 <section class="slide">
-<h2>Embedded Undertow</h2>
+<h2>Embedded Undertow Servlet</h2>
 <ul>
 <li class="">
 Undertow has been designed to be easy to embed
@@ -3087,6 +3228,23 @@ This API is exactly the same API that Wildfly uses to integrate Undertow
 </ul>
 </section>
 <section class="slide">
+<h2>Embedded API example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">final</span> <span class="n">PathHandler</span> <span class="n">pathHandler</span> <span class="o">=</span> <span class="k">new</span> <span class="n">PathHandler</span><span class="o">();</span>
+<span class="kd">final</span> <span class="n">ServletContainer</span> <span class="n">container</span> <span class="o">=</span> <span class="n">ServletContainer</span><span class="o">.</span><span class="na">Factory</span><span class="o">.</span><span class="na">newInstance</span><span class="o">();</span>
+<span class="n">DeploymentInfo</span> <span class="n">d</span> <span class="o">=</span> <span class="n">Servlets</span><span class="o">.</span><span class="na">deployment</span><span class="o">()</span>
+    <span class="o">.</span><span class="na">addServlet</span><span class="o">(</span><span class="n">Servlets</span><span class="o">.</span><span class="na">servlet</span><span class="o">(</span><span class="s">&quot;My Servlet&quot;</span><span class="o">,</span> <span class="n">MessageServlet</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">addMapping</span><span class="o">(</span><span class="s">&quot;/message&quot;</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">addInitParam</span><span class="o">(</span><span class="s">&quot;message&quot;</span><span class="o">,</span> <span class="s">&quot;Hello World&quot;</span><span class="o">))</span>
+    <span class="o">.</span><span class="na">addListener</span><span class="o">(</span><span class="n">Servlets</span><span class="o">.</span><span class="na">listener</span><span class="o">(</span><span class="n">MyListener</span><span class="o">.</span><span class="na">class</span><span class="o">))</span>
+    <span class="o">.</span><span class="na">setDefaultSessionTimeout</span><span class="o">(</span><span class="mi">10</span><span class="o">);</span>
+<span class="n">DeploymentManager</span> <span class="n">manager</span> <span class="o">=</span> <span class="n">Servlets</span><span class="o">.</span><span class="na">defaultContainer</span><span class="o">().</span><span class="na">addDeployment</span><span class="o">(</span><span class="n">d</span><span class="o">);</span>
+<span class="n">manager</span><span class="o">.</span><span class="na">deploy</span><span class="o">();</span>
+<span class="n">HttpHandler</span> <span class="n">handler</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+<span class="n">pathHandler</span><span class="o">.</span><span class="na">addPath</span><span class="o">(</span><span class="s">&quot;/myDeployment&quot;</span><span class="o">,</span> <span class="n">handler</span><span class="o">);</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
 <h2>Servlet Extensions</h2>
 <ul>
 <li class="">
@@ -3098,7 +3256,15 @@ Similar to a <code>ServletContainerInitializer</code> but more flexible, as any 
 <li class="">
 Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
 </li>
+<li class="">
+Gives you access to the DeploymentInfo structure, so you have access to the same API that was used to build the deployment
+</li>
 </ul>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">ServletExtension</span> <span class="o">{</span>
+    <span class="kt">void</span> <span class="nf">handleDeployment</span><span class="o">(</span><span class="kd">final</span> <span class="n">DeploymentInfo</span> <span class="n">d</span><span class="o">,</span> <span class="kd">final</span> <span class="n">ServletContextImpl</span> <span class="n">s</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></div></div></div>
 </section>
 <section class="slide">
 <h2>Get Involved!</h2>

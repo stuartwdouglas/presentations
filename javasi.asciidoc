@@ -41,7 +41,8 @@ Undertow
 //:count_nested:
 
 == Undertow Presentation Outline
- * Undertow overview
+ * Undertow Overview
+ * Undertow Architecture
  * HTTP Upgrade
  * Websockets
  * Servlet 3.1
@@ -51,21 +52,95 @@ Undertow
 
 == Undertow
 
- * New webserver project integrated in WildFly 8
+ * New webserver project integrated in WildFly 8 (The server formerly known as JBoss Application Server)
  * Servlet 3.1 container
- * Server for HTTP management interface
- * HTTP Upgrade
- * /subsystem=undertow instead of /subsystem=web
+ * Websocket implementation
+ * Supports HTTP Upgrade
+ * Supports the use of high performance non-blocking handlers in servlet deployments
 
 == Why Another Webserver?
  * A true non-blocking API (servlet is by itself insufficient)
  * Improved support for modern security standards
  * Upgrade from HTTP to our native protocols
- * Future one-port mode
+ * Will allow wildfly to run in single port mode
  * Support the latest network protocols naturally and with minimal overhead
  * Best possible performance and memory efficiency
  * Handle complex routing use cases a la mod_rewrite
  * Embeddable in standalone process / test environment
+
+== Undertow Architecture
+
+ * An Undertow server instance is composed of one or more connectors, and a handler chain
+ * The connectors handle incoming requests using async IO
+ * Once a request is fully parsed it is passed off to the handler chain
+ * All functionality is implemented by chaining handlers together
+ * Undertow is based on XNIO, which is a thin layer over Java NIO
+
+== Undertow Architecture Diagram
+
+ TODO: insert diagram
+
+== The HttpHandler interface
+
+[source,java]
+----
+public interface HttpHandler {
+    void handleRequest(HttpServerExchange exchange) throws Exception;
+}
+----
+
+== The Server
+
+=== HTTP Handlers
+ * Handlers perform actions on the exchange, e.g. setting headers, writing a response etc
+ * The Undertow Servlet implementation is implemented as a series of handlers
+ * The security implementation is also a series of handlers, most of which is usable outside of Servlet
+
+=== The HttpServerExchange
+ * Represents both the request and the response
+ * Lets you get/set headers, write response etc
+ * Can have arbitrary data attached to it via the use of attachments
+ * Can read/write request/response via blocking or non-blocking IO
+
+== Blocking and Non Blocking IO
+ * Initially handlers are run in an IO thread, they cannot perform blocking actions
+ * An exchange can be dispatched to an executor in order to allow it to perform blocking tasks
+ * By default an exchange will use non-blocking IO, unless the `startBlocking()` method has been called
+
+== Non Blocking Hello World Example
+
+[source,java]
+----
+Undertow server = Undertow.builder()
+        .addListener(8080, "localhost")
+        .setHandler(new HttpHandler() {
+            @Override
+            public void handleRequest(final HttpServerExchange exchange) throws Exception {
+                exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/plain");
+                exchange.getResponseSender().send("Hello World");
+            }
+        }).build();
+server.start();
+----
+
+== Blocking Hello World Example
+
+[source,java]
+----
+class BlockingHelloWorld implements HttpHandler {
+        @Override
+        public void handleRequest(final HttpServerExchange exchange) throws Exception {
+            if(exchange.isInIoThread()) { //check if we are in the IO thread
+                exchange.dispatch(this); //execute this handler using the default worker executor
+                return;
+            }
+            exchange.startBlocking(); //switch to blocking IO
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/plain");
+            exchange.getOutputStream().write("Hello World".getBytes());
+        }
+}
+----
+
 
 == HTTP Upgrade
 
@@ -75,7 +150,7 @@ Undertow
  * Standard mechanism defined in the HTTP/1.1 RFC, most common use is to initiate a websocket connection
  * A HTTP client sends a request with the `Upgrade:` header to initiate the connection.
  * If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
-whatever handles the upgraded protocol.
+whatever handles the upgraded protocol
 
 === Why use it?
 
@@ -83,9 +158,9 @@ whatever handles the upgraded protocol.
  * Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
  * Removes need to configure multiple ports
 
-== Usage In Wildfly
+== Why is this important?
 
- * Thanks to HTTP Upgrade we have managed to reduce the number of ports in the default Wildfly installation to 3
+ * This allowed us to reduce the number of ports in the default Wildfly installation to 3
  * This will be down to 2 by the time Wildfly goes final
  * EJB and JNDI are multiplexed over the undertow subsystem port 8080
  * Management is multiplexed over the web management port 9990
@@ -93,7 +168,34 @@ whatever handles the upgraded protocol.
  * This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
  * The only performance overhead is the initial HTTP request, otherwise it performs identically
 
-== HTTP Upgrade - EJB example
+== HTTP Upgrade Code Example
+
+[source,java]
+----
+public void handleRequest(final HttpServerExchange exchange) throws Exception {
+    final String upgrade = exchange.getRequestHeaders().getFirst(Headers.UPGRADE);
+    if (upgrade != null && exchange.getRequestMethod().equals(Methods.GET)) {
+        if(upgrade.equals("jboss-remoting")) {
+            exchange.upgradeChannel("jboss-remoting", new ExchangeCompletionListener() {
+                @Override
+                public void exchangeEvent(final HttpServerExchange exchange, final NextListener nextListener) {
+                    try {
+                        StreamConnection connection = exchange.getConnection().upgradeChannel();
+                        //do stuff with our upgraded connection
+                    } catch (Exception e) {
+                        UndertowLogger.REQUEST_LOGGER.cannotUpgradeConnection(e);
+                    }
+                }
+            }
+            return;
+        }
+    }
+    next.handleRequest(exchange);
+}
+next.handleRequest(exchange);
+----
+
+== HTTP Upgrade - Wildfly EJB example
 
 === Client Request
 
@@ -102,7 +204,6 @@ GET / HTTP/1.1
 Host: example.com
 Upgrade: jboss-remoting
 Connection: Upgrade
-Sec-JbossRemoting-Key: dGhlIHNhbXBsZSBub25jZQ==
 ----
 
 === Server Response
@@ -111,7 +212,6 @@ Sec-JbossRemoting-Key: dGhlIHNhbXBsZSBub25jZQ==
 HTTP/1.1 101 Switching Protocols
 Upgrade: jboss-remoting
 Connection: Upgrade
-Sec-JbossRemoting-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
 ----
 
 == Websockets
@@ -363,26 +463,57 @@ public interface WebConnection extends AutoCloseable {
 
 == Setting up the reverse proxy
 
- * CLI commands to proxy /my-app to two other servers
-
+[source,java]
 ----
-/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy:add
-/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy/host=ajp\:\/\/10.0.0.1\/my-app:add
-/subsystem=undertow/configuration=handler/reverse-proxy=my-reverse-proxy/host=http\:\/\/10.0.0.2\/my-app:add
-/subsystem=undertow/server=default-server/host=default-host/location=\/my-app:add(handler=my-reverse-proxy)
+Undertow server = Undertow.builder()
+        .addListener(8080, "localhost")
+        .setHandler(new ProxyHandler(new LoadBalancingProxyClient()
+            .setConnectionsPerThread(20)
+            .addHost(new URI("http", null, "1.0.0.1", 8080, null, null, null))
+            .addHost(new URI("http", null, "1.0.0.2", 8080, null, null, null))
+            , 10000))
+        .build();
+server.start();
 ----
 
-== Embedded Undertow
+== Embedded Undertow Servlet
 
  * Undertow has been designed to be easy to embed
  * Has a fluent API that makes it easy to build and deploy servlet applications
  * This API is exactly the same API that Wildfly uses to integrate Undertow
+
+== Embedded API example
+
+[source,java]
+----
+final PathHandler pathHandler = new PathHandler();
+final ServletContainer container = ServletContainer.Factory.newInstance();
+DeploymentInfo d = Servlets.deployment()
+    .addServlet(Servlets.servlet("My Servlet", MessageServlet.class)
+            .addMapping("/message")
+            .addInitParam("message", "Hello World"))
+    .addListener(Servlets.listener(MyListener.class))
+    .setDefaultSessionTimeout(10);
+DeploymentManager manager = Servlets.defaultContainer().addDeployment(d);
+manager.deploy();
+HttpHandler handler = manager.start();
+pathHandler.addPath("/myDeployment", handler);
+----
 
 
 == Servlet Extensions
  * Undertow provides the ability to customise a deployment via the `io.undertow.servlet.ServletExtension` interface
  * Similar to a `ServletContainerInitializer` but more flexible, as any part of the deployment can be changed
  * Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
+ * Gives you access to the DeploymentInfo structure, so you have access to the same API that was used to build the deployment
+
+[source,java]
+----
+public interface ServletExtension {
+    void handleDeployment(final DeploymentInfo d, final ServletContextImpl s);
+}
+----
+
 
 == Get Involved!
  *  www.wildfly.org
