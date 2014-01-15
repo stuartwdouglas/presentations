@@ -6,7 +6,7 @@
         <title>Undertow</title>
         <meta name="viewport" content="width=1024, user-scalable=no">
         <meta name="author" content="Stuart Douglas" />
-        <meta name="generator" content="AsciiDoc 8.6.8" />
+        <meta name="generator" content="AsciiDoc 8.6.7" />
         
         <!-- Core and extension CSS files -->
 <style type="text/css">
@@ -2520,25 +2520,28 @@ Supports the use of high performance non-blocking handlers in servlet deployment
 <h2>Why Another Webserver?</h2>
 <ul>
 <li class="">
-A true non-blocking API (servlet is by itself insufficient)
+Mostly driven by the requirements for Wildfly
 </li>
 <li class="">
-Improved support for modern security standards
+Designed from the start for embedded mode
+</li>
+<li class="">
+A true non-blocking API
 </li>
 <li class="">
 Upgrade from HTTP to our native protocols
 </li>
 <li class="">
-Will allow wildfly to run in single port mode
+Improved support for modern security standards
+</li>
+<li class="">
+Will allow Wildfly to run in single port mode
 </li>
 <li class="">
 Support the latest network protocols naturally and with minimal overhead
 </li>
 <li class="">
 Best possible performance and memory efficiency
-</li>
-<li class="">
-Handle complex routing use cases a la mod_rewrite
 </li>
 <li class="">
 Embeddable in standalone process / test environment
@@ -2566,11 +2569,8 @@ Undertow is based on XNIO, which is a thin layer over Java NIO
 </ul>
 </section>
 <section class="slide">
-<h2>Undertow Architecture Diagram</h2>
-<div class="literalblock">
-<div class="content">
-<pre><tt>TODO: insert diagram</tt></pre>
-</div></div>
+<h2>Undertow Flow Diagram</h2>
+<img src="architecture.svg" alt="Diagram" class=""/>
 </section>
 <section class="slide">
 <h2>The HttpHandler interface</h2>
@@ -2624,7 +2624,7 @@ Initially handlers are run in an IO thread, they cannot perform blocking actions
 An exchange can be dispatched to an executor in order to allow it to perform blocking tasks
 </li>
 <li class="">
-By default an exchange will use non-blocking IO, unless the <code>startBlocking()</code> method has been called
+By default an exchange will use non-blocking IO, unless the <tt>startBlocking()</tt> method has been called
 </li>
 </ul>
 </section>
@@ -2635,8 +2635,8 @@ By default an exchange will use non-blocking IO, unless the <code>startBlocking(
         <span class="o">.</span><span class="na">addListener</span><span class="o">(</span><span class="mi">8080</span><span class="o">,</span> <span class="s">&quot;localhost&quot;</span><span class="o">)</span>
         <span class="o">.</span><span class="na">setHandler</span><span class="o">(</span><span class="k">new</span> <span class="n">HttpHandler</span><span class="o">()</span> <span class="o">{</span>
             <span class="nd">@Override</span>
-            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
-                <span class="n">exchange</span><span class="o">.</span><span class="na">getResponseHeaders</span><span class="o">().</span><span class="na">put</span><span class="o">(</span><span class="n">Headers</span><span class="o">.</span><span class="na">CONTENT_TYPE</span><span class="o">,</span> <span class="s">&quot;text/plain&quot;</span><span class="o">);</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">exchange</span><span class="o">.</span><span class="na">getResponseHeaders</span><span class="o">().</span><span class="na">put</span><span class="o">(</span><span class="s">&quot;content-type&quot;</span><span class="o">,</span> <span class="s">&quot;text/plain&quot;</span><span class="o">);</span>
                 <span class="n">exchange</span><span class="o">.</span><span class="na">getResponseSender</span><span class="o">().</span><span class="na">send</span><span class="o">(</span><span class="s">&quot;Hello World&quot;</span><span class="o">);</span>
             <span class="o">}</span>
         <span class="o">}).</span><span class="na">build</span><span class="o">();</span>
@@ -2650,7 +2650,8 @@ By default an exchange will use non-blocking IO, unless the <code>startBlocking(
         <span class="nd">@Override</span>
         <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
             <span class="k">if</span><span class="o">(</span><span class="n">exchange</span><span class="o">.</span><span class="na">isInIoThread</span><span class="o">())</span> <span class="o">{</span> <span class="c1">//check if we are in the IO thread</span>
-                <span class="n">exchange</span><span class="o">.</span><span class="na">dispatch</span><span class="o">(</span><span class="k">this</span><span class="o">);</span> <span class="c1">//execute this handler using the default worker executor</span>
+                <span class="c1">//execute this handler using the default worker executor</span>
+                <span class="n">exchange</span><span class="o">.</span><span class="na">dispatch</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
                 <span class="k">return</span><span class="o">;</span>
             <span class="o">}</span>
             <span class="n">exchange</span><span class="o">.</span><span class="na">startBlocking</span><span class="o">();</span> <span class="c1">//switch to blocking IO</span>
@@ -2672,7 +2673,7 @@ HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
 Standard mechanism defined in the HTTP/1.1 RFC, most common use is to initiate a websocket connection
 </li>
 <li class="">
-A HTTP client sends a request with the <code>Upgrade:</code> header to initiate the connection.
+A HTTP client sends a request with the <tt>Upgrade:</tt> header to initiate the connection.
 </li>
 <li class="">
 If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to
@@ -2724,27 +2725,19 @@ The only performance overhead is the initial HTTP request, otherwise it performs
 <section class="slide">
 <h2>HTTP Upgrade Code Example</h2>
 <div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
-    <span class="kd">final</span> <span class="n">String</span> <span class="n">upgrade</span> <span class="o">=</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getRequestHeaders</span><span class="o">().</span><span class="na">getFirst</span><span class="o">(</span><span class="n">Headers</span><span class="o">.</span><span class="na">UPGRADE</span><span class="o">);</span>
-    <span class="k">if</span> <span class="o">(</span><span class="n">upgrade</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getRequestMethod</span><span class="o">().</span><span class="na">equals</span><span class="o">(</span><span class="n">Methods</span><span class="o">.</span><span class="na">GET</span><span class="o">))</span> <span class="o">{</span>
-        <span class="k">if</span><span class="o">(</span><span class="n">upgrade</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="s">&quot;jboss-remoting&quot;</span><span class="o">))</span> <span class="o">{</span>
-            <span class="n">exchange</span><span class="o">.</span><span class="na">upgradeChannel</span><span class="o">(</span><span class="s">&quot;jboss-remoting&quot;</span><span class="o">,</span> <span class="k">new</span> <span class="n">ExchangeCompletionListener</span><span class="o">()</span> <span class="o">{</span>
-                <span class="nd">@Override</span>
-                <span class="kd">public</span> <span class="kt">void</span> <span class="nf">exchangeEvent</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">,</span> <span class="kd">final</span> <span class="n">NextListener</span> <span class="n">nextListener</span><span class="o">)</span> <span class="o">{</span>
-                    <span class="k">try</span> <span class="o">{</span>
-                        <span class="n">StreamConnection</span> <span class="n">connection</span> <span class="o">=</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getConnection</span><span class="o">().</span><span class="na">upgradeChannel</span><span class="o">();</span>
-                        <span class="c1">//do stuff with our upgraded connection</span>
-                    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
-                        <span class="n">UndertowLogger</span><span class="o">.</span><span class="na">REQUEST_LOGGER</span><span class="o">.</span><span class="na">cannotUpgradeConnection</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
-                    <span class="o">}</span>
-                <span class="o">}</span>
+<div class="content"><div class="highlight"><pre><span class="kd">final</span> <span class="n">String</span> <span class="n">upgrade</span> <span class="o">=</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getRequestHeaders</span><span class="o">().</span><span class="na">getFirst</span><span class="o">(</span><span class="n">Headers</span><span class="o">.</span><span class="na">UPGRADE</span><span class="o">);</span>
+<span class="k">if</span> <span class="o">(</span><span class="n">upgrade</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getRequestMethod</span><span class="o">().</span><span class="na">equals</span><span class="o">(</span><span class="n">Methods</span><span class="o">.</span><span class="na">GET</span><span class="o">))</span> <span class="o">{</span>
+    <span class="k">if</span><span class="o">(</span><span class="n">upgrade</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="s">&quot;jboss-remoting&quot;</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">exchange</span><span class="o">.</span><span class="na">upgradeChannel</span><span class="o">(</span><span class="s">&quot;jboss-remoting&quot;</span><span class="o">,</span> <span class="k">new</span> <span class="n">ExchangeCompletionListener</span><span class="o">()</span> <span class="o">{</span>
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">exchangeEvent</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">,</span> <span class="kd">final</span> <span class="n">NextListener</span> <span class="n">nextListener</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">StreamConnection</span> <span class="n">connection</span> <span class="o">=</span> <span class="n">exchange</span><span class="o">.</span><span class="na">getConnection</span><span class="o">().</span><span class="na">upgradeChannel</span><span class="o">();</span>
+                <span class="c1">//do stuff with our upgraded connection</span>
             <span class="o">}</span>
-            <span class="k">return</span><span class="o">;</span>
         <span class="o">}</span>
+        <span class="k">return</span><span class="o">;</span>
     <span class="o">}</span>
-    <span class="n">next</span><span class="o">.</span><span class="na">handleRequest</span><span class="o">(</span><span class="n">exchange</span><span class="o">);</span>
 <span class="o">}</span>
-<span class="n">next</span><span class="o">.</span><span class="na">handleRequest</span><span class="o">(</span><span class="n">exchange</span><span class="o">);</span>
 </pre></div></div></div>
 </section>
 <section class="slide">
@@ -2816,10 +2809,10 @@ The Websocket API provides both annotated and programatic API&#8217;s to send an
 It can act as both the server and the client
 </li>
 <li class="">
-It provides a means of customising deployed endpoints via the <code>javax.websocket.server.ServerApplicationConfig</code> interface
+It provides a means of customising deployed endpoints via the <tt>javax.websocket.server.ServerApplicationConfig</tt> interface
 </li>
 <li class="">
-Provides <code>Encoder</code> and <code>Decoder</code> interfaces, to encode objects as messages and visa versa
+Provides <tt>Encoder</tt> and <tt>Decoder</tt> interfaces, to encode objects as messages and visa versa
 </li>
 </ul>
 </section>
@@ -2920,10 +2913,10 @@ Continuation - Continuation of a text or binary frame
 <h3 id="_text_messages">Text messages</h3>
 <ul>
 <li class="">
-<code>java.lang.String</code> or Java primitive to receive the whole message
+<tt>java.lang.String</tt> or Java primitive to receive the whole message
 </li>
 <li class="">
-<code>java.io.Reader</code> to receive the whole message as a blocking stream
+<tt>java.io.Reader</tt> to receive the whole message as a blocking stream
 </li>
 <li class="">
 any object parameter for which the endpoint has a text decoder
@@ -2934,10 +2927,10 @@ any object parameter for which the endpoint has a text decoder
 <h3 id="_binary_messages">Binary messages</h3>
 <ul>
 <li class="">
-<code>byte[]</code> or <code>java.nio.ByteBuffer</code>
+<tt>byte[]</tt> or <tt>java.nio.ByteBuffer</tt>
 </li>
 <li class="">
-<code>java.io.InputStream</code> to receive the whole message as a blocking stream
+<tt>java.io.InputStream</tt> to receive the whole message as a blocking stream
 </li>
 <li class="">
 Any object parameter for which the endpoint has a binary decoder
@@ -2966,13 +2959,13 @@ It must take one of the message type from the previous slide as a parameter
 If it returns a value the value will be encoded as a web socket message and sent to the client
 </li>
 <li class="">
-The <code>@PathParam</code> annotation can be used to inject values from the URL template
+The <tt>@PathParam</tt> annotation can be used to inject values from the URL template
 </li>
 <li class="">
 Some message types can also be used with a boolean parameter to receive part of the message at a time
 </li>
 <li class="">
-When the boolean is <code>false</code> there is still more data to come
+When the boolean is <tt>false</tt> there is still more data to come
 </li>
 </ul>
 </section>
@@ -2986,33 +2979,33 @@ Allow you to convert arbitrary objects to and from web socket messages
 Represented by 8 interfaces
 <ul>
 <li class="">
-<code>javax.websocket.Decoder.Binary</code>
+<tt>javax.websocket.Decoder.Binary</tt>
 </li>
 <li class="">
-<code>javax.websocket.Decoder.BinaryStream</code>
+<tt>javax.websocket.Decoder.BinaryStream</tt>
 </li>
 <li class="">
-<code>javax.websocket.Decoder.Text</code>
+<tt>javax.websocket.Decoder.Text</tt>
 </li>
 <li class="">
-<code>javax.websocket.Decoder.TextStream</code>
+<tt>javax.websocket.Decoder.TextStream</tt>
 </li>
 <li class="">
-<code>javax.websocket.Encoder.Text</code>
+<tt>javax.websocket.Encoder.Text</tt>
 </li>
 <li class="">
-<code>javax.websocket.Encoder.TextStream</code>
+<tt>javax.websocket.Encoder.TextStream</tt>
 </li>
 <li class="">
-<code>javax.websocket.Encoder.Binary</code>
+<tt>javax.websocket.Encoder.Binary</tt>
 </li>
 <li class="">
-<code>javax.websocket.Encoder.BinaryStream</code>
+<tt>javax.websocket.Encoder.BinaryStream</tt>
 </li>
 </ul>
 </li>
 <li class="">
-Decoder classes are specified in the <code>@ServerEndpoint</code> annotation
+Decoder classes are specified in the <tt>@ServerEndpoint</tt> annotation
 </li>
 </ul>
 </section>
@@ -3083,22 +3076,22 @@ Non-blocking code is generally more complex to write than blocking code
 Call ServletRequest.startAsync() to put the request into async mode
 </li>
 <li class="">
-Call <code>ServletOutputStream.setWriteListener(WriteListener writeListener)</code> to put the stream into async mode
+Call <tt>ServletOutputStream.setWriteListener(WriteListener writeListener)</tt> to put the stream into async mode
 </li>
 <li class="">
 The write listener will be invoked after the current request has returned to the container
 </li>
 <li class="">
-You <strong>must</strong> call <code>ServletOutputStream.isReady()</code> before calling <code>write()</code>
+You <strong>must</strong> call <tt>ServletOutputStream.isReady()</tt> before calling <tt>write()</tt>
 </li>
 <li class="">
-When <code>isReady()</code> returns true you can call <code>write()</code>
+When <tt>isReady()</tt> returns true you can call <tt>write()</tt>
 </li>
 <li class="">
-If the socket cannot write out all the data it will be queued, <code>write()</code> will always return immediately
+If the socket cannot write out all the data it will be queued, <tt>write()</tt> will always return immediately
 </li>
 <li class="">
-When <code>isReady()</code> return false then you cannot write, you must return and the write listener will be invoked again
+When <tt>isReady()</tt> return false then you cannot write, you must return and the write listener will be invoked again
  once the stream is ready to write.
 </li>
 </ul>
@@ -3128,17 +3121,17 @@ When <code>isReady()</code> return false then you cannot write, you must return 
 <h2>The Servlet Upgrade API</h2>
 <ul>
 <li class="">
-To upgrade the request we call <code>&lt;T extends HttpUpgradeHandler&gt; T HttpServletRequest.upgrade(Class&lt;T&gt; handlerClass)</code>
+To upgrade the request we call <tt>&lt;T extends HttpUpgradeHandler&gt; T HttpServletRequest.upgrade(Class&lt;T&gt; handlerClass)</tt>
 </li>
 <li class="">
-We are still responsible for checking for the <code>Upgrade</code> header, and setting and appropriate response headers
+We are still responsible for checking for the <tt>Upgrade</tt> header, and setting and appropriate response headers
 </li>
 <li class="">
-Once the request is finished the resulting <code>HttpUpgradeHandler</code> will take over the connection, and can send and receive
-  data via the provided <code>WebConnection</code> and its associated streams.
+Once the request is finished the resulting <tt>HttpUpgradeHandler</tt> will take over the connection, and can send and receive
+  data via the provided <tt>WebConnection</tt> and its associated streams.
 </li>
 <li class="">
-Upgraded connection can use the async IO capabilites of <code>ServletInputStream</code> and <code>ServletOutputStream</code>
+Upgraded connection can use the async IO capabilites of <tt>ServletInputStream</tt> and <tt>ServletOutputStream</tt>
 </li>
 </ul>
 </section>
@@ -3248,10 +3241,10 @@ This API is exactly the same API that Wildfly uses to integrate Undertow
 <h2>Servlet Extensions</h2>
 <ul>
 <li class="">
-Undertow provides the ability to customise a deployment via the <code>io.undertow.servlet.ServletExtension</code> interface
+Undertow provides the ability to customise a deployment via the <tt>io.undertow.servlet.ServletExtension</tt> interface
 </li>
 <li class="">
-Similar to a <code>ServletContainerInitializer</code> but more flexible, as any part of the deployment can be changed
+Similar to a <tt>ServletContainerInitializer</tt> but more flexible, as any part of the deployment can be changed
 </li>
 <li class="">
 Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
@@ -3267,30 +3260,19 @@ Gives you access to the DeploymentInfo structure, so you have access to the same
 </pre></div></div></div>
 </section>
 <section class="slide">
-<h2>Get Involved!</h2>
-<ul>
-<li class="">
-www.wildfly.org
-</li>
-<li class="">
-Downloads: <a href="http://www.wildfly.org/download/">http://www.wildfly.org/download/</a>
-</li>
-<li class="">
-Forums and wiki: <a href="https://community.jboss.org/en/">https://community.jboss.org/en/</a> wildfly
-</li>
-<li class="">
-Docs: <a href="https://docs.jboss.org/author/display/WFLY8/">https://docs.jboss.org/author/display/WFLY8/</a> Documentation
-</li>
-<li class="">
-Dev mailing list: <a href="mailto:wildfly-dev@lists.jboss.org">wildfly-dev@lists.jboss.org</a>
-</li>
-<li class="">
-IRC on freenode: #wildfly and #wildfly-dev
-</li>
-<li class="">
-Code: <a href="https://github.com/wildfly/wildfly">https://github.com/wildfly/wildfly</a>
-</li>
-</ul>
+<h2>Example Extension</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleDeployment</span><span class="o">(</span><span class="kd">final</span> <span class="n">DeploymentInfo</span> <span class="n">d</span><span class="o">,</span> <span class="kd">final</span> <span class="n">ServletContextImpl</span> <span class="n">s</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">d</span><span class="o">.</span><span class="na">addInitialHandlerChainWrapper</span><span class="o">(</span><span class="k">new</span> <span class="n">HandlerWrapper</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">public</span> <span class="n">HttpHandler</span> <span class="nf">wrap</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpHandler</span> <span class="n">h</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">final</span> <span class="n">ResourceHandler</span> <span class="n">r</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ResourceHandler</span><span class="o">()</span>
+                    <span class="o">.</span><span class="na">setResourceManager</span><span class="o">(</span><span class="n">d</span><span class="o">.</span><span class="na">getResourceManager</span><span class="o">());</span>
+            <span class="k">return</span> <span class="n">Handlers</span><span class="o">.</span><span class="na">predicate</span><span class="o">(</span>
+                <span class="n">Predicates</span><span class="o">.</span><span class="na">suffixs</span><span class="o">(</span><span class="s">&quot;.css&quot;</span><span class="o">,</span> <span class="s">&quot;.js&quot;</span><span class="o">),</span> <span class="n">r</span><span class="o">,</span> <span class="n">h</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+<span class="o">}</span>
+</pre></div></div></div>
 </section>
 <section class="slide">
 <h2>Q &amp; A</h2>

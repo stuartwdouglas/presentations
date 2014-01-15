@@ -59,13 +59,14 @@ Undertow
  * Supports the use of high performance non-blocking handlers in servlet deployments
 
 == Why Another Webserver?
- * A true non-blocking API (servlet is by itself insufficient)
- * Improved support for modern security standards
+ * Mostly driven by the requirements for Wildfly
+ * Designed from the start for embedded mode
+ * A true non-blocking API
  * Upgrade from HTTP to our native protocols
- * Will allow wildfly to run in single port mode
+ * Improved support for modern security standards
+ * Will allow Wildfly to run in single port mode
  * Support the latest network protocols naturally and with minimal overhead
  * Best possible performance and memory efficiency
- * Handle complex routing use cases a la mod_rewrite
  * Embeddable in standalone process / test environment
 
 == Undertow Architecture
@@ -76,9 +77,9 @@ Undertow
  * All functionality is implemented by chaining handlers together
  * Undertow is based on XNIO, which is a thin layer over Java NIO
 
-== Undertow Architecture Diagram
+== Undertow Flow Diagram
 
- TODO: insert diagram
+image::architecture.svg["Diagram", height=70]
 
 == The HttpHandler interface
 
@@ -115,8 +116,8 @@ Undertow server = Undertow.builder()
         .addListener(8080, "localhost")
         .setHandler(new HttpHandler() {
             @Override
-            public void handleRequest(final HttpServerExchange exchange) throws Exception {
-                exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/plain");
+            public void handleRequest(final HttpServerExchange exchange) {
+                exchange.getResponseHeaders().put("content-type", "text/plain");
                 exchange.getResponseSender().send("Hello World");
             }
         }).build();
@@ -131,13 +132,90 @@ class BlockingHelloWorld implements HttpHandler {
         @Override
         public void handleRequest(final HttpServerExchange exchange) throws Exception {
             if(exchange.isInIoThread()) { //check if we are in the IO thread
-                exchange.dispatch(this); //execute this handler using the default worker executor
+                //execute this handler using the default worker executor
+                exchange.dispatch(this);
                 return;
             }
             exchange.startBlocking(); //switch to blocking IO
             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/plain");
             exchange.getOutputStream().write("Hello World".getBytes());
         }
+}
+----
+
+== Reverse Proxy
+
+ * Undertow has the ability to act as a high performance reverse proxy
+ * Handles both AJP and HTTP backends
+ * Supports round robin load balancing
+ * Support for mod_cluster is planned
+ * Still under heavy development
+
+== Setting up the reverse proxy
+
+[source,java]
+----
+Undertow server = Undertow.builder()
+        .addListener(8080, "localhost")
+        .setHandler(new ProxyHandler(new LoadBalancingProxyClient()
+            .setConnectionsPerThread(20)
+            .addHost(new URI("http", null, "1.0.0.1", 8080, null, null, null))
+            .addHost(new URI("http", null, "1.0.0.2", 8080, null, null, null))
+            , 10000))
+        .build();
+server.start();
+----
+
+== Embedded Undertow Servlet
+
+ * Undertow has been designed to be easy to embed
+ * Has a fluent API that makes it easy to build and deploy servlet applications
+ * This API is exactly the same API that Wildfly uses to integrate Undertow
+
+== Embedded API example
+
+[source,java]
+----
+final PathHandler pathHandler = new PathHandler();
+final ServletContainer container = ServletContainer.Factory.newInstance();
+DeploymentInfo d = Servlets.deployment()
+    .addServlet(Servlets.servlet("My Servlet", MessageServlet.class)
+            .addMapping("/message")
+            .addInitParam("message", "Hello World"))
+    .addListener(Servlets.listener(MyListener.class))
+    .setDefaultSessionTimeout(10);
+DeploymentManager manager = Servlets.defaultContainer().addDeployment(d);
+manager.deploy();
+HttpHandler handler = manager.start();
+pathHandler.addPath("/myDeployment", handler);
+----
+
+
+== Servlet Extensions
+ * Undertow provides the ability to customise a deployment via the `io.undertow.servlet.ServletExtension` interface
+ * Similar to a `ServletContainerInitializer` but more flexible, as any part of the deployment can be changed
+ * Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
+ * Gives you access to the DeploymentInfo structure, so you have access to the same API that was used to build the deployment
+
+[source,java]
+----
+public interface ServletExtension {
+    void handleDeployment(final DeploymentInfo d, final ServletContextImpl s);
+}
+----
+
+== Example Extension
+[source,java]
+----
+public void handleDeployment(final DeploymentInfo d, final ServletContextImpl s) {
+    d.addInitialHandlerChainWrapper(new HandlerWrapper() {
+        public HttpHandler wrap(final HttpHandler h) {
+            final ResourceHandler r = new ResourceHandler()
+                    .setResourceManager(d.getResourceManager());
+            return Handlers.predicate(
+                Predicates.suffixs(".css", ".js"), r, h);
+        }
+    });
 }
 ----
 
@@ -172,27 +250,19 @@ whatever handles the upgraded protocol
 
 [source,java]
 ----
-public void handleRequest(final HttpServerExchange exchange) throws Exception {
-    final String upgrade = exchange.getRequestHeaders().getFirst(Headers.UPGRADE);
-    if (upgrade != null && exchange.getRequestMethod().equals(Methods.GET)) {
-        if(upgrade.equals("jboss-remoting")) {
-            exchange.upgradeChannel("jboss-remoting", new ExchangeCompletionListener() {
-                @Override
-                public void exchangeEvent(final HttpServerExchange exchange, final NextListener nextListener) {
-                    try {
-                        StreamConnection connection = exchange.getConnection().upgradeChannel();
-                        //do stuff with our upgraded connection
-                    } catch (Exception e) {
-                        UndertowLogger.REQUEST_LOGGER.cannotUpgradeConnection(e);
-                    }
-                }
+final String upgrade = exchange.getRequestHeaders().getFirst(Headers.UPGRADE);
+if (upgrade != null && exchange.getRequestMethod().equals(Methods.GET)) {
+    if(upgrade.equals("jboss-remoting")) {
+        exchange.upgradeChannel("jboss-remoting", new ExchangeCompletionListener() {
+            @Override
+            public void exchangeEvent(final HttpServerExchange exchange, final NextListener nextListener) {
+                StreamConnection connection = exchange.getConnection().upgradeChannel();
+                //do stuff with our upgraded connection
             }
-            return;
         }
+        return;
     }
-    next.handleRequest(exchange);
 }
-next.handleRequest(exchange);
 ----
 
 == HTTP Upgrade - Wildfly EJB example
@@ -452,76 +522,5 @@ public interface WebConnection extends AutoCloseable {
     public ServletOutputStream getOutputStream() throws IOException;
 }
 ----
-
-== Reverse Proxy
-
- * Undertow has the ability to act as a high performance reverse proxy
- * Handles both AJP and HTTP backends
- * Supports round robin load balancing
- * Support for mod_cluster is planned
- * Still under heavy development
-
-== Setting up the reverse proxy
-
-[source,java]
-----
-Undertow server = Undertow.builder()
-        .addListener(8080, "localhost")
-        .setHandler(new ProxyHandler(new LoadBalancingProxyClient()
-            .setConnectionsPerThread(20)
-            .addHost(new URI("http", null, "1.0.0.1", 8080, null, null, null))
-            .addHost(new URI("http", null, "1.0.0.2", 8080, null, null, null))
-            , 10000))
-        .build();
-server.start();
-----
-
-== Embedded Undertow Servlet
-
- * Undertow has been designed to be easy to embed
- * Has a fluent API that makes it easy to build and deploy servlet applications
- * This API is exactly the same API that Wildfly uses to integrate Undertow
-
-== Embedded API example
-
-[source,java]
-----
-final PathHandler pathHandler = new PathHandler();
-final ServletContainer container = ServletContainer.Factory.newInstance();
-DeploymentInfo d = Servlets.deployment()
-    .addServlet(Servlets.servlet("My Servlet", MessageServlet.class)
-            .addMapping("/message")
-            .addInitParam("message", "Hello World"))
-    .addListener(Servlets.listener(MyListener.class))
-    .setDefaultSessionTimeout(10);
-DeploymentManager manager = Servlets.defaultContainer().addDeployment(d);
-manager.deploy();
-HttpHandler handler = manager.start();
-pathHandler.addPath("/myDeployment", handler);
-----
-
-
-== Servlet Extensions
- * Undertow provides the ability to customise a deployment via the `io.undertow.servlet.ServletExtension` interface
- * Similar to a `ServletContainerInitializer` but more flexible, as any part of the deployment can be changed
- * Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
- * Gives you access to the DeploymentInfo structure, so you have access to the same API that was used to build the deployment
-
-[source,java]
-----
-public interface ServletExtension {
-    void handleDeployment(final DeploymentInfo d, final ServletContextImpl s);
-}
-----
-
-
-== Get Involved!
- *  www.wildfly.org
- * Downloads: http://www.wildfly.org/download/
- * Forums and wiki: https://community.jboss.org/en/ wildfly
- * Docs: https://docs.jboss.org/author/display/WFLY8/ Documentation
- * Dev mailing list: wildfly-dev@lists.jboss.org
- * IRC on freenode: #wildfly and #wildfly-dev
- * Code: https://github.com/wildfly/wildfly
 
 == Q & A
