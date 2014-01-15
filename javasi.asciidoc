@@ -40,16 +40,6 @@ Undertow
 ///////////////////////
 //:count_nested:
 
-== Undertow Presentation Outline
- * Undertow Overview
- * Undertow Architecture
- * HTTP Upgrade
- * Websockets
- * Servlet 3.1
- * Reverse Proxy
- * Embedded Undertow
- * Undertow Extensions
-
 == Undertow
 
  * New webserver project integrated in WildFly 8 (The server formerly known as JBoss Application Server)

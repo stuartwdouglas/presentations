@@ -40,16 +40,6 @@ Undertow
 ///////////////////////
 //:count_nested:
 
-== Undertow Presentation Outline
- * Undertow Overview
- * Undertow Architecture
- * HTTP Upgrade
- * Websockets
- * Servlet 3.1
- * Reverse Proxy
- * Embedded Undertow
- * Undertow Extensions
-
 == Undertow
 
  * New webserver project integrated in WildFly 8 (The server formerly known as JBoss Application Server)
@@ -95,7 +85,7 @@ public interface HttpHandler {
 == Blocking and Non Blocking IO
  * Initially handlers are run in an IO thread, they cannot perform blocking actions
  * An exchange can be dispatched to an executor in order to allow it to perform blocking tasks
- * By default an exchange will use non-blocking IO, unless the `startBlocking()` method has been called
+ * By default an exchange will use non-blocking IO
 
 == Non Blocking Hello World Example
 
@@ -131,51 +121,6 @@ class BlockingHelloWorld implements HttpHandler {
         }
 }
 ----
-
-== Reverse Proxy
-
- * Undertow has the ability to act as a high performance reverse proxy
- * Handles both AJP and HTTP backends
- * Supports round robin load balancing
- * Support for mod_cluster is planned
- * Still under heavy development
-
-== Setting up the reverse proxy
-
-[source,java]
-----
-Undertow server = Undertow.builder()
-        .addListener(8080, "localhost")
-        .setHandler(new ProxyHandler(new LoadBalancingProxyClient()
-            .setConnectionsPerThread(20)
-            .addHost(new URI("http", null, "1.0.0.1", 8080, null, null, null))
-            .addHost(new URI("http", null, "1.0.0.2", 8080, null, null, null))
-            , 10000))
-        .build();
-server.start();
-----
-
-== Setting up the reverse proxy from Within Wildfly
-
-[source,xml]
-----
-<subsystem xmlns="urn:jboss:domain:undertow:1.0">
-    <server name="default-server">
-        ...
-        <host name="default-host" alias="localhost">
-            <location name="/myapp" handler="myProxy" />
-        </host>
-    </server>
-    ...
-    <handlers>
-        <reverse-proxy name="myProxy" >
-            <host name="http://10.0.0.1:8080" instance-id="node-1"/>
-            <host name="ajp://10.0.0.2:8009" instance-id="node-2"/>
-        </reverse-proxy>
-    </handlers>
-</subsystem>
-----
-
 
 == Embedded Undertow Servlet
 
@@ -227,6 +172,50 @@ public void handleDeployment(final DeploymentInfo d, final ServletContextImpl s)
         }
     });
 }
+----
+
+== Reverse Proxy
+
+ * Undertow has the ability to act as a high performance reverse proxy
+ * Handles both AJP and HTTP backends
+ * Supports round robin load balancing
+ * Support for mod_cluster is planned
+ * Still under heavy development
+
+== Setting up the reverse proxy
+
+[source,java]
+----
+Undertow server = Undertow.builder()
+        .addListener(8080, "localhost")
+        .setHandler(new ProxyHandler(new LoadBalancingProxyClient()
+            .setConnectionsPerThread(20)
+            .addHost(new URI("http", null, "1.0.0.1", 8080, null, null, null))
+            .addHost(new URI("http", null, "1.0.0.2", 8080, null, null, null))
+            , 10000))
+        .build();
+server.start();
+----
+
+== Setting up the reverse proxy from Within Wildfly
+
+[source,xml]
+----
+<subsystem xmlns="urn:jboss:domain:undertow:1.0">
+    <server name="default-server">
+        ...
+        <host name="default-host" alias="localhost">
+            <location name="/myapp" handler="myProxy" />
+        </host>
+    </server>
+    ...
+    <handlers>
+        <reverse-proxy name="myProxy" >
+            <host name="http://10.0.0.1:8080" instance-id="node-1"/>
+            <host name="ajp://10.0.0.2:8009" instance-id="node-2"/>
+        </reverse-proxy>
+    </handlers>
+</subsystem>
 ----
 
 
@@ -408,14 +397,6 @@ Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
 
 === Pong messages
  * javax.websocket.PongMessage
-
-== @OnMessage methods
- * An endpoint can have at most one @OnMessage annotated method for each message type (text, binary, pong)
- * It must take one of the message type from the previous slide as a parameter
- * If it returns a value the value will be encoded as a web socket message and sent to the client
- * The `@PathParam` annotation can be used to inject values from the URL template
- * Some message types can also be used with a boolean parameter to receive part of the message at a time
- * When the boolean is `false` there is still more data to come
 
 == Encoders and decoders
  * Allow you to convert arbitrary objects to and from web socket messages

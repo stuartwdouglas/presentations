@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created by diasvg.py -->
+<svg width="31.340cm" height="22.817cm" viewBox="1.567 2.316 32.907 25.133"
+ xmlns="http://www.w3.org/2000/svg"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect x="1.617" y="2.390" width="14.574" height="22.693" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="1.617" y="2.390" width="14.574" height="22.693" fill="none" stroke="#000000" stroke-width="0.100" />
+<ellipse cx="8.922" cy="6.723" rx="5.878" ry="1.577" fill="#FFFFFF" stroke="none"  /><ellipse cx="8.922" cy="6.723" rx="5.878" ry="1.577" fill="none" stroke="#000000"  stroke-width="0.100" /><text x="8.922" y="6.918"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+HTTP Connector</text>
+<rect x="3.660" y="10.350" width="10.548" height="1.900" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="3.660" y="10.350" width="10.548" height="1.900" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="8.934" y="11.495"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Virtual Host Handler</text>
+<line x1="8.922" y1="8.300" x2="8.931" y2="9.863" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.100" points="8.933,10.238 8.680,9.740 8.931,9.863 9.180,9.737 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="8.933,10.238 8.680,9.740 8.931,9.863 9.180,9.737 "/>
+<rect x="3.702" y="14.550" width="10.506" height="1.900" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="3.702" y="14.550" width="10.506" height="1.900" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="8.955" y="15.695"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Path Handler</text>
+<line x1="8.934" y1="12.250" x2="8.951" y2="14.063" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.100" points="8.954,14.438 8.700,13.941 8.951,14.063 9.200,13.936 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="8.954,14.438 8.700,13.941 8.951,14.063 9.200,13.936 "/>
+<text x="9.186" y="13.450"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+myhost.com</text>
+<line x1="8.955" y1="16.450" x2="8.970" y2="17.563" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.100" points="8.975,17.938 8.718,17.442 8.970,17.563 9.218,17.435 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="8.975,17.938 8.718,17.442 8.970,17.563 9.218,17.435 "/>
+<rect x="3.702" y="18.050" width="10.548" height="1.900" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="3.702" y="18.050" width="10.548" height="1.900" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="8.976" y="19.195"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Servlet Initial Handler</text>
+<path stroke="none" fill="#FFFFFF" stroke-width="0.100" d="M 6.096,21.325 L 11.795,21.325 C 12.581,21.325 13.219,21.929 13.219,22.675 C 13.219,23.421 12.581,24.025 11.795,24.025 L 6.096,24.025 C 5.309,24.025 4.671,23.421 4.671,22.675 C 4.671,21.929 5.309,21.325 6.096,21.325 "/>
+<path stroke="#000000" fill="none" stroke-width="0.100"  d="M 6.096,21.325 L 11.795,21.325 C 12.581,21.325 13.219,21.929 13.219,22.675 C 13.219,23.421 12.581,24.025 11.795,24.025 L 6.096,24.025 C 5.309,24.025 4.671,23.421 4.671,22.675 C 4.671,21.929 5.309,21.325 6.096,21.325 "/>
+<text x="8.945" y="22.075"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Dispatch from IO</text>
+<text x="8.945" y="22.875"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+thread to worker</text>
+<text x="8.945" y="23.675"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+thread pool</text>
+<line x1="8.976" y1="19.950" x2="8.956" y2="20.838" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.100" points="8.948,21.213 8.709,20.708 8.956,20.838 9.209,20.719 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="8.948,21.213 8.709,20.708 8.956,20.838 9.209,20.719 "/>
+<rect x="1.635" y="2.404" width="14.556" height="1.900" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="1.635" y="2.404" width="14.556" height="1.900" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="8.913" y="3.549"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+IO Thread</text>
+<rect x="18.275" y="2.366" width="14.574" height="22.693" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="18.275" y="2.366" width="14.574" height="22.693" fill="none" stroke="#000000" stroke-width="0.100" />
+<rect x="18.259" y="2.366" width="14.599" height="1.900" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="18.259" y="2.366" width="14.599" height="1.900" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="25.558" y="3.511"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Worker Thread</text>
+<rect x="20.073" y="5.372" width="10.886" height="1.900" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="20.073" y="5.372" width="10.886" height="1.900" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="25.516" y="6.517"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Servlet Initial Handler</text>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="13.219,22.675 17.077,22.675 17.077,6.322 19.586,6.322 "/>
+<polygon fill="#000000" stroke="none" stroke-width="0.100" points="19.961,6.322 19.461,6.572 19.586,6.322 19.461,6.072 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="19.961,6.322 19.461,6.572 19.586,6.322 19.461,6.072 "/>
+<rect x="20.031" y="9.092" width="10.928" height="2.700" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="20.031" y="9.092" width="10.928" height="2.700" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="25.495" y="10.237"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Servlet Security</text>
+<text x="25.495" y="11.037"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Handler</text>
+<line x1="25.516" y1="7.272" x2="25.500" y2="8.606" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.100" points="25.496,8.981 25.252,8.478 25.500,8.606 25.752,8.484 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="25.496,8.981 25.252,8.478 25.500,8.606 25.752,8.484 "/>
+<rect x="20.073" y="13.501" width="10.886" height="1.900" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="20.073" y="13.501" width="10.886" height="1.900" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="25.516" y="14.646"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Servlet Filter Handler</text>
+<rect x="20.115" y="17.172" width="10.844" height="1.900" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="20.115" y="17.172" width="10.844" height="1.900" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="25.537" y="18.317"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+Servlet Handler</text>
+<text x="8.966" y="17.250"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+    /myapp</text>
+<line x1="25.495" y1="11.792" x2="25.510" y2="13.014" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.100" points="25.514,13.389 25.258,12.892 25.510,13.014 25.758,12.886 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="25.514,13.389 25.258,12.892 25.510,13.014 25.758,12.886 "/>
+<line x1="25.516" y1="15.401" x2="25.531" y2="16.685" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.100" points="25.536,17.060 25.280,16.563 25.531,16.685 25.780,16.557 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="25.536,17.060 25.280,16.563 25.531,16.685 25.780,16.557 "/>
+</svg>
