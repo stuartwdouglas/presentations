@@ -62,6 +62,7 @@ Undertow
  * Supports the use of high performance non-blocking handlers in servlet deployments
  * Contains a high performance reverse proxy implementation
 
+
 == Undertow Architecture
 
  * An Undertow server instance is composed of one or more connectors, and a handler chain
@@ -306,6 +307,17 @@ Connection: Upgrade
  * Frames have a header that specifies the length and the frame type (+ some other stuff)
  * Possible to send data of unknown length using continuation frames
 
+
+== Web Socket frames
+
+ * Websockets defines the following frame types:
+  - Text - UTF-8 text frame
+  - Binary - Raw binary data
+  - Ping - Either side can send this to verify the the other endpoint is still connected
+  - Pong - Response to a ping frame
+  - Close - Sent to indicate the connection is being closed
+  - Continuation - Continuation of a text or binary frame
+
 == Wildfly websocket support
 
  * Wildfly supports websockets using Undertow's websocket implementation
@@ -384,32 +396,6 @@ Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws:
 Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
 ----
 
-== Web Socket frames
-
- * Websockets defines the following frame types:
-  - Text - UTF-8 text frame
-  - Binary - Raw binary data
-  - Ping - Either side can send this to verify the the other endpoint is still connected
-  - Pong - Response to a ping frame
-  - Close - Sent to indicate the connection is being closed
-  - Continuation - Continuation of a text or binary frame
-
-== Message types
-
-@OnMessage annotated endpoints can provide you with access to the message in a number of different ways:
-
-=== Text messages
- * `java.lang.String` or Java primitive to receive the whole message
- * `java.io.Reader` to receive the whole message as a blocking stream
- * any object parameter for which the endpoint has a text decoder
-
-=== Binary messages
- * `byte[]` or `java.nio.ByteBuffer`
- * `java.io.InputStream` to receive the whole message as a blocking stream
- * Any object parameter for which the endpoint has a binary decoder
-
-=== Pong messages
- * javax.websocket.PongMessage
 
 == Encoders and decoders
  * Allow you to convert arbitrary objects to and from web socket messages
