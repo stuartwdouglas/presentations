@@ -40,13 +40,27 @@ Undertow
 ///////////////////////
 //:count_nested:
 
+
+== Wildfly
+ * Server formerly known as JBoss AS
+ * CR1 is out, Final coming soon
+ * EE7 certified
+ * Lots of new features:
+   - New web server
+   - Web Sockets
+   - Role based access control
+   - Batch processing support
+   - And lots more ...
+
 == Undertow
 
- * New webserver project integrated in WildFly 8 (The server formerly known as JBoss Application Server)
+ * New webserver project integrated in WildFly 8
+ * Embeddable with a fluent API
  * Servlet 3.1 container
  * Websocket implementation
  * Supports HTTP Upgrade
  * Supports the use of high performance non-blocking handlers in servlet deployments
+ * Contains a high performance reverse proxy implementation
 
 == Undertow Architecture
 
@@ -83,6 +97,7 @@ public interface HttpHandler {
  * Can read/write request/response via blocking or non-blocking IO
 
 == Blocking and Non Blocking IO
+ * Undertow connectors always use non-blocking IO
  * Initially handlers are run in an IO thread, they cannot perform blocking actions
  * An exchange can be dispatched to an executor in order to allow it to perform blocking tasks
  * By default an exchange will use non-blocking IO
@@ -164,11 +179,10 @@ public interface ServletExtension {
 ----
 public void handleDeployment(final DeploymentInfo d, final ServletContextImpl s) {
     d.addInitialHandlerChainWrapper(new HandlerWrapper() {
-        public HttpHandler wrap(final HttpHandler h) {
-            final ResourceHandler r = new ResourceHandler()
-                    .setResourceManager(d.getResourceManager());
+        public HttpHandler wrap(final HttpHandler servletHandler) {
+            final ResourceHandler r = Handlers.resource(d.getResourceManager());
             return Handlers.predicate(
-                Predicates.suffixs(".css", ".js"), r, h);
+                Predicates.suffixs(".css", ".js"), r, servletHandler);
         }
     });
 }
@@ -252,10 +266,9 @@ whatever handles the upgraded protocol
 final String upgrade = exchange.getRequestHeaders().getFirst(Headers.UPGRADE);
 if (upgrade != null && exchange.getRequestMethod().equals(Methods.GET)) {
     if(upgrade.equals("jboss-remoting")) {
-        exchange.upgradeChannel("jboss-remoting", new ExchangeCompletionListener() {
-            @Override
-            public void exchangeEvent(final HttpServerExchange exchange, final NextListener nextListener) {
-                StreamConnection connection = exchange.getConnection().upgradeChannel();
+        exchange.upgradeChannel("jboss-remoting", new HttpUpgradeListener() {
+
+            public void handleUpgrade(StreamConnection c, HttpServerExchange e) {
                 //do stuff with our upgraded connection
             }
         }
@@ -515,3 +528,7 @@ public interface WebConnection extends AutoCloseable {
 ----
 
 == Q & A
+
+http://undertow.io
+
+http://wildfly.org
