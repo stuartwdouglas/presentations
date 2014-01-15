@@ -44,7 +44,7 @@ Undertow
 == Wildfly
  * Server formerly known as JBoss AS
  * CR1 is out, Final coming soon
- * EE7 certified
+ * Java EE7 certified
  * Lots of new features:
    - New web server
    - Web Sockets
@@ -73,7 +73,7 @@ Undertow
 
 == Undertow Flow Diagram
 
-image::architecture.svg["Diagram", height=70]
+image::architecture.svg["Diagram", height=60]
 
 == The HttpHandler interface
 
