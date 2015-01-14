@@ -1,0 +1,124 @@
+Wildfly Graceful Shutdown
+=========================
+:author: Stuart Douglas
+:email: <stuart.w.douglas@gmail.com>
+///////////////////////
+	Themes that you can choose includes:
+	web-2.0, swiss, neon beamer
+///////////////////////
+:deckjs_theme: swiss2
+///////////////////////
+	Transitions that you can choose includes:
+	fade, horizontal-slide, vertical-slide
+///////////////////////
+:deckjs_transition: horizontal-slide
+///////////////////////
+	AsciiDoc use `source-highlight` as default highlighter.
+
+	Styles available for pygment highlighter:
+	monokai, manni, perldoc, borland, colorful, default, murphy, vs, trac,
+	tango, fruity, autumn, bw, emacs, vim, pastie, friendly, native,
+
+	Uncomment following two lines if you want to highlight your code
+	with `Pygments`.
+///////////////////////
+:pygments:
+:pygments_style: default
+///////////////////////
+	Uncomment following line if you want to scroll inside slides
+	with {down,up} arrow keys.
+///////////////////////
+//:scrollable:
+///////////////////////
+	Uncomment following line if you want to link css and js file
+	from outside instead of embedding them into the output file.
+///////////////////////
+//:linkcss:
+///////////////////////
+	Uncomment following line if you want to count each incremental
+	bullet as a new slide
+///////////////////////
+//:count_nested:
+:customcss: slides.css
+
+== Suspend/Resume (AKA Graceful Shutdown)
+ * General Overview
+ * Specific subsystem implementations
+ * TODO list
+
+== General Overview
+ * Suspend/Resume allows a server to stop accepting incoming requests, while allowing existing requests to finish
+ * Graceful shutdown is based on this, and basically is just a way of issuing a suspend followed by a shutdown command
+ * A suspended server is different to a server in admin only mode, in that all services are up, and can being processing
+ requests immediately
+
+== Management Ops
+ * +:suspend(timeout=x)+ <=will block until timeout is hit or server suspends
+ * +:resume+
+ * +:shutdown(timeout=x)+  <= will suspend, and once server is suspended or timeout is hit will shut down
+ * +:read-attribute(name=suspend-state)+
+
+== Internals
+ * Suspend/Resume is coordinated by the SuspendController
+ * Has +suspend+ and +resume+ methods as you would expect
+ * Subsystems register themselves with the controller using +ServerActivity+ instances
+
+== Suspend States
+
+RUNNING:: The server is running as normal
+PRE_SUSPEND:: The server is about to start suspending. In this phase notification is sent to external parties (e.g. the
+load balancer) that this server is about to stop accepting requests
+SUSPENDING:: The server is suspending, and will not accept any new requests. Existing requests will proceed as normal
+SUSPENDED:: All existing requests have completed, and the server has suspended
+
+== Server Activities
+ * When the server suspends all registered +ServerActivity+ instances are notified of the state change
+ * They then perform any (pre)suspend action that is required, and invoke a supplied callback when complete
+ * The state change is complete once all the callbacks have been invoked
+
+== The request controller subsystem
+
+ * The most common thing that subsystems need to do is track requests from entry points
+ * Entry points are places where an external request enters the server, such as the web connector or a remote EJB request
+ * Entry points are *not* individual internal components, in general if a subsystem does not provide any entry points to
+the server it does not need to worry about graceful shutdown
+ * The +request-controller+ subsystem provides a simple solution to request tracking that can be shared across subsystems
+ * It also provides a way to provide a global limit on the total number of running requests (overload protection)
+
+== Using the request controller
+
+ * RequestController is a server activity that tracks running requests
+ * Entry points call getControlPoint() to get a control point. This method takes the deployment and entry point name
+ as parameters, at some point we may support partial suspend of some deployments
+ * Subsystems invoke +beginRequest+ and check the result to see if the request can proceed
+ * When the request is done they invoke +requestComplete+
+
+== Using the request controller (cont)
+
+[source,java]
+----
+ RunResult result = controlPoint.beginRequest();
+ if(result == RunResult.REJECTED) {
+     throw new RuntimeException("Request was rejected");
+ }
+ try {
+     //process request
+ } finally {
+     controlPoint.requestComplete();
+ }
+----
+
+== Subsystem Implementations
+The following subsystems need graceful support
+
+ * Undertow [green]#✔#
+ * EJB [green]#✔#
+ * EE (concurrency) [green]#✔#
+ * mod_cluster [green]#✔#
+ * Naming [green]#✔#
+ * Messaging
+ * Clustering
+ * JDKORB
+ * Batch
+
+
