@@ -92,6 +92,8 @@ the server it does not need to worry about graceful shutdown
  as parameters, at some point we may support partial suspend of some deployments
  * Subsystems invoke +beginRequest+ and check the result to see if the request can proceed
  * When the request is done they invoke +requestComplete+
+ * +forceBeginRequest+ can be used to forcibly increment the request count if the existing request is delegating to
+ another thread
 
 == Using the request controller (cont)
 
@@ -109,6 +111,7 @@ the server it does not need to worry about graceful shutdown
 ----
 
 == Subsystem Implementations
+
 The following subsystems need graceful support
 
  * Undertow [green]#✔#
@@ -120,5 +123,40 @@ The following subsystems need graceful support
  * Clustering
  * JDKORB
  * Batch
+
+== Undertow
+
+ * Uses the RequestController to track incoming requests through the web connector
+
+== EJB
+
+ * Tracks incoming remote requests
+ * Tracks EJB timer invocations, and queues any that are due to run when the server is paused
+ * Also tracks async EJB invocations
+
+== EE
+ * Tracks concurrent tasks
+
+== mod_cluster
+ * Notifies the load balancer that the deployment is going away in the pre_suspend phase
+
+== Naming
+ * Tracks incoming remote naming requests
+
+== Clustering
+ * Still to do
+ * Should notify the cluster the node is going away
+ * Not sure if anything else is required???
+
+== Messaging
+ * MDB shutdown has been implemented (request tracking for MDB's)
+ * Not sure what else is required???
+
+== JDKORB
+ * This piggy backs on the existing EJB support
+ * Should be all that is required, if a user is using the ORB directly they are on their own
+
+== Batch
+ * Not sure what is required here, probably just job tracking
 
 
