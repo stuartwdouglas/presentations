@@ -2534,7 +2534,7 @@ A suspended server is different to a server in admin only mode, in that all serv
 Suspend/Resume is coordinated by the SuspendController
 </li>
 <li class="">
-Has <code>suspend</code> and <code>resume</code> methods as you would expect
+Has <code>suspend</code> and <code>resume</code> methods to control the state
 </li>
 <li class="">
 Subsystems register themselves with the controller using <code>ServerActivity</code> instances
@@ -2630,6 +2630,10 @@ Subsystems invoke <code>beginRequest</code> and check the result to see if the r
 <li class="">
 When the request is done they invoke <code>requestComplete</code>
 </li>
+<li class="">
+<code>forceBeginRequest</code> can be used to forcibly increment the request count if the existing request is delegating to
+ another thread
+</li>
 </ul>
 </section>
 <section class="slide">
@@ -2676,6 +2680,96 @@ JDKORB
 </li>
 <li class="">
 Batch
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Undertow</h2>
+<ul>
+<li class="">
+Uses the RequestController to track incoming requests through the web connector
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>EJB</h2>
+<ul>
+<li class="">
+Tracks incoming remote requests
+</li>
+<li class="">
+Tracks EJB timer invocations, and queues any that are due to run when the server is paused
+</li>
+<li class="">
+Also tracks async EJB invocations
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>EE</h2>
+<ul>
+<li class="">
+Tracks concurrent tasks
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>mod_cluster</h2>
+<ul>
+<li class="">
+Notifies the load balancer that the deployment is going away in the pre_suspend phase
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Naming</h2>
+<ul>
+<li class="">
+Tracks incoming remote naming requests
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Clustering</h2>
+<ul>
+<li class="">
+Still to do
+</li>
+<li class="">
+Should notify the cluster the node is going away
+</li>
+<li class="">
+Not sure if anything else is required???
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Messaging</h2>
+<ul>
+<li class="">
+MDB shutdown has been implemented (request tracking for MDB&#8217;s)
+</li>
+<li class="">
+Not sure what else is required???
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>JDKORB</h2>
+<ul>
+<li class="">
+This piggy backs on the existing EJB support
+</li>
+<li class="">
+Should be all that is required, if a user is using the ORB directly they are on their own
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Batch</h2>
+<ul>
+<li class="">
+Not sure what is required here, probably just job tracking
 </li>
 </ul>
 </section>

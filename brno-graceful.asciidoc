@@ -60,7 +60,7 @@ Wildfly Graceful Shutdown
 
 == Internals
  * Suspend/Resume is coordinated by the SuspendController
- * Has +suspend+ and +resume+ methods as you would expect
+ * Has +suspend+ and +resume+ methods to control the state
  * Subsystems register themselves with the controller using +ServerActivity+ instances
 
 == Suspend States
