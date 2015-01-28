@@ -2485,16 +2485,16 @@ This module splits a long slide into multiple slides.
 <h2>Wildfly 9</h2>
 <ul>
 <li class="">
-mod_cluster
-</li>
-<li class="">
 Graceful shutdown
 </li>
 <li class="">
-Provisioning ??
+HTTP2, SPDY
 </li>
 <li class="">
-HTTP2, SPDY, &#8230;
+Build Split and Provisioning
+</li>
+<li class="">
+mod_cluster
 </li>
 </ul>
 </section>
@@ -2523,6 +2523,14 @@ Server can be shut down once request is finished
 </li>
 <li class="">
 <code>:shutdown(timeout=?)</code>
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Graceful shutdown</h2>
+<ul>
+<li class="">
+When a graceful shutdown command is issue
 </li>
 </ul>
 </section>
@@ -2570,7 +2578,7 @@ A thick server is a traditional Wildfly server, with all jar files needed locate
 A thin server references a maven artifact in the module descriptors, and runs using jar&#8217;s located in the maven repository
 </li>
 <li class="">
-A thin server is much smaller (around 17mb), although they still need the jars to be in the maven repo these can be shared between instances
+A thin server is much smaller (around 17mb, less if we don&#8217;t include schema files), although they still need the jars to be in the maven repo these can be shared between instances
 </li>
 </ul>
 </section>
@@ -2585,12 +2593,11 @@ At the moment we have two front ends, a maven plugin and a standalone jar that c
 </li>
 <li class="">
 Maven plugin allows for easy testing, as the server can be provisioned as part of the build
- *
 </li>
 </ul>
 </section>
 <section class="slide">
-<h2>mod_cluster frontent support</h2>
+<h2>Reverse proxy support</h2>
 <ul>
 <li class="">
 Wildfly 9 uses Undertow&#8217;s reverse proxy capability to allow it to act as a load balancer
@@ -2601,6 +2608,26 @@ Can be used as a static load balancer, or use mod_proxy to allow for dynamic dis
 <li class="">
 No need for apache in the front end any more
 </li>
+<li class="">
+Can use modern protocols such as SPDY and HTTP2 to connect to the back end nodes, which is more efficient that HTTP or AJP
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>mod_cluster front end support</h2>
+<ul>
+<li class="">
+Reverse proxy supports mod_cluster functionality, allowing for dynamic backend discovery
+</li>
+<li class="">
+Load balancer advertises itself using multicast
+</li>
+<li class="">
+Backend servers then connect to load balancer, and let it know their IP address and what deployments are available
+</li>
+<li class="">
+They also send load information, which the proxy uses when deciding which backend to send the request to
+</li>
 </ul>
 </section>
 <section class="slide">
@@ -2608,7 +2635,15 @@ No need for apache in the front end any more
 <ul>
 <li class="">
 Demo uses domain mode to create two server groups, representing the load balancer and the backend
- *
+</li>
+<li class="">
+Backend nodes have system properties set to allow you to tell which node handed the request
+</li>
+<li class="">
+The whole setup is controlled through the domain controller
+</li>
+<li class="">
+Easiest way to get started with clustering, no native code required
 </li>
 </ul>
 </section>

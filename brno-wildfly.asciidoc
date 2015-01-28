@@ -42,26 +42,50 @@ Wildfly Graceful Shutdown
 :customcss: slides.css
 
 == Wildfly 9
- * mod_cluster
  * Graceful shutdown
- * Provisioning ??
- * HTTP2, SPDY, ...
+ * Build Split and Provisioning
+ * HTTP2, SPDY
+ * mod_cluster
 
 == Graceful Shutdown
  * AKA suspend/resume
  * Graceful shutdown allows a server to suspend in a graceful manner, rejecting new requests and allowing existing requests to finish
  * Server can be shut down once request is finished
 
-== Graceful shutdown
+== Graceful shutdown management operations
+ * +:suspend(timeout=x)+ <=will block until timeout is hit or server suspends
+ * +:resume+
+ * +:shutdown(timeout=x)+  <= will suspend, and once server is suspended or timeout is hit will shut down
+ * +:read-attribute(name=suspend-state)+
 
- * +:suspend(timeout=?)+
- * +:resume()+
- * +:shutdown(timeout=?)+
+== Suspend States
+
+RUNNING:: The server is running as normal
+PRE_SUSPEND:: The server is about to start suspending
+SUSPENDING:: The server is suspending, and will not accept any new requests
+SUSPENDED:: All existing requests have completed, and the server has suspended
+
+== PRE_SUSPEND
+ * When a graceful shutdown command is issued the container first goes into PRE_SUSPEND
+ * In this phase the server will notify external parties that it is about to go away
+ * For example if mod_cluster is in use it will tell the load balancer to stop sending requests
+ * MDB container will stop accepting new messages
+
+== SUSPENDING
+ * At this point all new requests are rejected
+ * Existing requests will run as normal
+ * New requests are requests that come from outside the server (e.g. web requests, remote EJB etc)
+
+== SUSPENDED
+ * All requests have completed
+ * You can now shut down or make configuration changes
+ * If you call +resume+ the server should be able to accept new requests immediately (there is no redeploy or startup cost)
 
 == Code base split
  * Wildfly has been split up into two separate repositories, core and full
  * Wildfly Core contains the base server and all management capabilities
  * Wildfly Full contains all EE and deployment related functionality
+ * We now provide tooling to facilitate building Wildfly extensions and add ons
 
 == Feature Packs
  * In oder to facilitate the code base split Wildfly 9 introduces the idea of Feature Packs
@@ -73,12 +97,16 @@ Wildfly Graceful Shutdown
  * Can provision a 'thick' or 'thin' server
  * A thick server is a traditional Wildfly server, with all jar files needed located under the modules directory
  * A thin server references a maven artifact in the module descriptors, and runs using jar's located in the maven repository
- * A thin server is much smaller (around 17mb), although they still need the jars to be in the maven repo these can be shared between instances
+ * A thin server is much smaller (around 17mb, less if we don't include schema files), although they still need the jars to be in the maven repo these can be shared between instances
 
 == Server provisioning
  * Provisioning is done by a provisioning library
  * At the moment we have two front ends, a maven plugin and a standalone jar that can be run from the command line
  * Maven plugin allows for easy testing, as the server can be provisioned as part of the build
+
+== server-provisioning.xml
+ 
+
 
 == Reverse proxy support
  * Wildfly 9 uses Undertow's reverse proxy capability to allow it to act as a load balancer
