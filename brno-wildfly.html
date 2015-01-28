@@ -3,7 +3,7 @@
 <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-        <title>Wildfly Graceful Shutdown</title>
+        <title>Wildfly</title>
         <meta name="viewport" content="width=1024, user-scalable=no">
         <meta name="author" content="Stuart Douglas" />
         <meta name="generator" content="AsciiDoc 8.6.9" />
@@ -2478,20 +2478,20 @@ This module splits a long slide into multiple slides.
 </head>
 <body class="deck-container">
 <section class="slide" id="title-slide">
-        <h1>Wildfly Graceful Shutdown</h1>
+        <h1>Wildfly</h1>
         <h3>Stuart Douglas</h3>
 </section>
 <section class="slide">
-<h2>Wildfly 9</h2>
+<h2>Overview</h2>
 <ul>
 <li class="">
 Graceful shutdown
 </li>
 <li class="">
-HTTP2, SPDY
+Build Split and Provisioning
 </li>
 <li class="">
-Build Split and Provisioning
+HTTP2, SPDY
 </li>
 <li class="">
 mod_cluster
@@ -2513,24 +2513,101 @@ Server can be shut down once request is finished
 </ul>
 </section>
 <section class="slide">
-<h2>Graceful shutdown</h2>
+<h2>Graceful shutdown management operations</h2>
 <ul>
 <li class="">
-<code>:suspend(timeout=?)</code>
+<code>:suspend(timeout=x)</code> &#8656;will block until timeout is hit or server suspends
 </li>
 <li class="">
-<code>:resume()</code>
+<code>:resume</code>
 </li>
 <li class="">
-<code>:shutdown(timeout=?)</code>
+<code>:shutdown(timeout=x)</code>  &#8656; will suspend, and once server is suspended or timeout is hit will shut down
+</li>
+<li class="">
+<code>:read-attribute(name=suspend-state)</code>
 </li>
 </ul>
 </section>
 <section class="slide">
-<h2>Graceful shutdown</h2>
+<h2>Suspend States</h2>
+<div class="dlist"><dl>
+<dt class="hdlist1">
+RUNNING
+</dt>
+<dd>
+<p>
+The server is running as normal
+</p>
+</dd>
+<dt class="hdlist1">
+PRE_SUSPEND
+</dt>
+<dd>
+<p>
+The server is about to start suspending
+</p>
+</dd>
+<dt class="hdlist1">
+SUSPENDING
+</dt>
+<dd>
+<p>
+The server is suspending, and will not accept any new requests
+</p>
+</dd>
+<dt class="hdlist1">
+SUSPENDED
+</dt>
+<dd>
+<p>
+All existing requests have completed, and the server has suspended
+</p>
+</dd>
+</dl></div>
+</section>
+<section class="slide">
+<h2>PRE_SUSPEND</h2>
 <ul>
 <li class="">
-When a graceful shutdown command is issue
+When a graceful shutdown command is issued the container first goes into PRE_SUSPEND
+</li>
+<li class="">
+In this phase the server will notify external parties that it is about to go away
+</li>
+<li class="">
+For example if mod_cluster is in use it will tell the load balancer to stop sending requests
+</li>
+<li class="">
+MDB container will stop accepting new messages
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>SUSPENDING</h2>
+<ul>
+<li class="">
+At this point all new requests are rejected
+</li>
+<li class="">
+Existing requests will run as normal
+</li>
+<li class="">
+New requests are requests that come from outside the server (e.g. web requests, remote EJB etc)
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>SUSPENDED</h2>
+<ul>
+<li class="">
+All requests have completed
+</li>
+<li class="">
+You can now shut down or make configuration changes
+</li>
+<li class="">
+If you call <code>resume</code> the server should be able to accept new requests immediately (there is no redeploy or startup cost)
 </li>
 </ul>
 </section>
@@ -2546,6 +2623,9 @@ Wildfly Core contains the base server and all management capabilities
 <li class="">
 Wildfly Full contains all EE and deployment related functionality
 </li>
+<li class="">
+We now provide tooling to facilitate building Wildfly extensions and add ons
+</li>
 </ul>
 </section>
 <section class="slide">
@@ -2559,6 +2639,48 @@ Feature packs are basically a set of instructions for building a Wildfly instanc
 </li>
 <li class="">
 Feature packs are very lightweight, as they do not contain the actual jars, just maven coordinates
+</li>
+<li class="">
+The Wildfly build process has been split into 3 feature packs, core, web and full
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Wildfly Core</h2>
+<ul>
+<li class="">
+Wildfly core contains the server core, including all management and domain related functionality
+</li>
+<li class="">
+Only useful to build on top of, you can&#8217;t really deploy anything useful to it
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Wildfly Web</h2>
+<ul>
+<li class="">
+Built on Wildfly Core
+</li>
+<li class="">
+Contains the Undertow and Naming subsystems
+</li>
+<li class="">
+Basically just a servlet container (think Tomcat, Jetty etc)
+</li>
+<li class="">
+But with domain management, modular class loading etc
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Wildfly Full</h2>
+<ul>
+<li class="">
+Built on Wildfly Web
+</li>
+<li class="">
+Contains everything else
 </li>
 </ul>
 </section>
@@ -2578,7 +2700,10 @@ A thick server is a traditional Wildfly server, with all jar files needed locate
 A thin server references a maven artifact in the module descriptors, and runs using jar&#8217;s located in the maven repository
 </li>
 <li class="">
-A thin server is much smaller (around 17mb, less if we don&#8217;t include schema files), although they still need the jars to be in the maven repo these can be shared between instances
+A thin server is much smaller (around 15mb)
+</li>
+<li class="">
+Although they still need the jars to be in the maven repo these can be shared between instances
 </li>
 </ul>
 </section>
@@ -2594,6 +2719,58 @@ At the moment we have two front ends, a maven plugin and a standalone jar that c
 <li class="">
 Maven plugin allows for easy testing, as the server can be provisioned as part of the build
 </li>
+<li class="">
+Still very much a work in progress, could change significantly
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>server-provisioning.xml</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nt">&lt;server-provisioning</span> <span class="na">xmlns=</span><span class="s">&quot;urn:wildfly:server-provisioning:1.0&quot;</span> <span class="na">extract-schemas=</span><span class="s">&quot;false&quot;</span> <span class="na">copy-module-artifacts=</span><span class="s">&quot;false&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;feature-packs&gt;</span>
+        <span class="nt">&lt;feature-pack</span> <span class="na">groupId=</span><span class="s">&quot;org.wildfly&quot;</span> <span class="na">artifactId=</span><span class="s">&quot;wildfly-feature-pack&quot;</span> <span class="na">version=</span><span class="s">&quot;9.0.0.Alpha1&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/feature-packs&gt;</span>
+<span class="nt">&lt;/server-provisioning&gt;</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Maven Plugin Usage</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nt">&lt;plugin&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>org.wildfly.build<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>wildfly-server-provisioning-maven-plugin<span class="nt">&lt;/artifactId&gt;</span>
+    <span class="nt">&lt;executions&gt;</span>
+        <span class="nt">&lt;execution&gt;</span>
+            <span class="nt">&lt;id&gt;</span>server-provisioning<span class="nt">&lt;/id&gt;</span>
+            <span class="nt">&lt;goals&gt;</span>
+                <span class="nt">&lt;goal&gt;</span>build<span class="nt">&lt;/goal&gt;</span>
+            <span class="nt">&lt;/goals&gt;</span>
+            <span class="nt">&lt;phase&gt;</span>process-test-resources<span class="nt">&lt;/phase&gt;</span>
+            <span class="nt">&lt;configuration&gt;</span>
+                <span class="nt">&lt;config-file&gt;</span>server-provisioning.xml<span class="nt">&lt;/config-file&gt;</span>
+                <span class="nt">&lt;server-name&gt;</span>wildfly<span class="nt">&lt;/server-name&gt;</span>
+            <span class="nt">&lt;/configuration&gt;</span>
+        <span class="nt">&lt;/execution&gt;</span>
+    <span class="nt">&lt;/executions&gt;</span>
+<span class="nt">&lt;/plugin&gt;</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>HTTP2</h2>
+<ul>
+<li class="">
+Wildfly 9 supports HTTP2 (draft 14)
+</li>
+<li class="">
+HTTP2 is a new protocol, intended as a HTTP2 replacement
+</li>
+<li class="">
+Binary protocol, based on SPDY
+</li>
+<li class="">
+Provides multiplexing, efficient header compression and server push
+</li>
 </ul>
 </section>
 <section class="slide">
@@ -2606,7 +2783,7 @@ Wildfly 9 uses Undertow&#8217;s reverse proxy capability to allow it to act as a
 Can be used as a static load balancer, or use mod_proxy to allow for dynamic discovery
 </li>
 <li class="">
-No need for apache in the front end any more
+Intended as a possible replacement for apache on the front end
 </li>
 <li class="">
 Can use modern protocols such as SPDY and HTTP2 to connect to the back end nodes, which is more efficient that HTTP or AJP

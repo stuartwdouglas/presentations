@@ -1,5 +1,5 @@
-Wildfly Graceful Shutdown
-=========================
+Wildfly
+=======
 :author: Stuart Douglas
 :email: <stuart.w.douglas@gmail.com>
 ///////////////////////
@@ -41,7 +41,7 @@ Wildfly Graceful Shutdown
 //:count_nested:
 :customcss: slides.css
 
-== Wildfly 9
+== Overview
  * Graceful shutdown
  * Build Split and Provisioning
  * HTTP2, SPDY
@@ -91,27 +91,81 @@ SUSPENDED:: All existing requests have completed, and the server has suspended
  * In oder to facilitate the code base split Wildfly 9 introduces the idea of Feature Packs
  * Feature packs are basically a set of instructions for building a Wildfly instance
  * Feature packs are very lightweight, as they do not contain the actual jars, just maven coordinates
+ * The Wildfly build process has been split into 3 feature packs, core, web and full
+
+== Wildfly Core
+ * Wildfly core contains the server core, including all management and domain related functionality
+ * Only useful to build on top of, you can't really deploy anything useful to it
+
+== Wildfly Web
+ * Built on Wildfly Core
+ * Contains the Undertow and Naming subsystems
+ * Basically just a servlet container (think Tomcat, Jetty etc)
+ * But with domain management, modular class loading etc
+
+== Wildfly Full
+ * Built on Wildfly Web
+ * Contains everything else
 
 == Server Provisioning
  * Feature packs are used to 'provision' a server, which takes all the required feature packs and creates a usable server
  * Can provision a 'thick' or 'thin' server
  * A thick server is a traditional Wildfly server, with all jar files needed located under the modules directory
  * A thin server references a maven artifact in the module descriptors, and runs using jar's located in the maven repository
- * A thin server is much smaller (around 17mb, less if we don't include schema files), although they still need the jars to be in the maven repo these can be shared between instances
+ * A thin server is much smaller (around 15mb)
+ * Although they still need the jars to be in the maven repo these can be shared between instances
 
 == Server provisioning
  * Provisioning is done by a provisioning library
  * At the moment we have two front ends, a maven plugin and a standalone jar that can be run from the command line
  * Maven plugin allows for easy testing, as the server can be provisioned as part of the build
+ * Still very much a work in progress, could change significantly
 
 == server-provisioning.xml
- 
+
+[source,xml]
+----
+<server-provisioning xmlns="urn:wildfly:server-provisioning:1.0" extract-schemas="false" copy-module-artifacts="false">
+    <feature-packs>
+        <feature-pack groupId="org.wildfly" artifactId="wildfly-feature-pack" version="9.0.0.Alpha1"/>
+    </feature-packs>
+</server-provisioning>
+----
+
+== Maven Plugin Usage
+
+[source,xml]
+----
+<plugin>
+    <groupId>org.wildfly.build</groupId>
+    <artifactId>wildfly-server-provisioning-maven-plugin</artifactId>
+    <executions>
+        <execution>
+            <id>server-provisioning</id>
+            <goals>
+                <goal>build</goal>
+            </goals>
+            <phase>process-test-resources</phase>
+            <configuration>
+                <config-file>server-provisioning.xml</config-file>
+                <server-name>wildfly</server-name>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+----
+
+== HTTP2
+ * Wildfly 9 supports HTTP2 (draft 14)
+ * HTTP2 is a new protocol, intended as a HTTP2 replacement
+ * Binary protocol, based on SPDY
+ * Provides multiplexing, efficient header compression and server push
 
 
 == Reverse proxy support
  * Wildfly 9 uses Undertow's reverse proxy capability to allow it to act as a load balancer
  * Can be used as a static load balancer, or use mod_proxy to allow for dynamic discovery
- * No need for apache in the front end any more
+ * Intended as a possible replacement for apache on the front end
  * Can use modern protocols such as SPDY and HTTP2 to connect to the back end nodes, which is more efficient that HTTP or AJP
 
 == mod_cluster front end support
