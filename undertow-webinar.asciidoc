@@ -44,14 +44,15 @@ Undertow
 == Undertow
 
  * Architecture
+ * Configuration overview
  * HTTP Upgrade (Port reduction)
- * Servlet 3.1
- * Servlet Extensions
- * Web Sockets
  * Undertow handlers and predicates
  * Undertow as a load balancer
+ * Servlet 3.1
+ * Servlet Extensions
  * Undertow.js
  * HTTP/2
+ * Web Sockets
 
 
 == Undertow
@@ -65,8 +66,8 @@ Undertow
  * Contains a high performance reverse proxy implementation
 
 == Architecture
- * An undertow server consists of one or more connectors and one or more `HttpHandler` instances
- * Requests come in through a connector
+ * An undertow server consists of one or more listeners and one or more `HttpHandler` instances
+ * Requests come in through a listener
  * Once a request has been fully read a +HttpServerExchange+ object is constructed, this object represents both the request and response
  * The +HttpServerExchange+ is then passed to the first `HttpHandler`
  * The +HttpHandler+ can then do work on the exchange, or delegate to another handler
@@ -105,6 +106,118 @@ public interface HttpHandler {
 image::architecture.svg["Diagram", height=60]
 
 
+== Undertow config
+ * Undertow configuration is provided by the Undertow Subsystem and the IO subsystem
+ * IO subsystem configures XNIO worker and buffer pools
+ * Everything else configured in Undertow subsystem
+
+== IO Subsystem
+
+[source,xml]
+----
+        <subsystem xmlns="urn:jboss:domain:io:1.1">
+            <worker name="default"/>
+            <buffer-pool name="default"/>
+        </subsystem>
+----
+
+* Worker provides the thread pool and IO threads
+* Defaults to CPU * 16 worker threads, CPU count * 2 IO threads
+* Buffer pool provides the buffers that Undertow uses for IO
+* Defaults to 16kb which should give optimal performance (unless available heap is <= 128mb)
+
+== Undertow subsystem
+[source,xml]
+----
+<subsystem xmlns="urn:jboss:domain:undertow:3.0">
+    <buffer-cache name="default"/>
+    <server name="default-server">
+        <http-listener name="default" socket-binding="http" redirect-socket="https"/>
+        <host name="default-host" alias="localhost">
+            <location name="/" handler="welcome-content"/>
+            <filter-ref name="server-header"/>
+            <filter-ref name="x-powered-by-header"/>
+        </host>
+    </server>
+    <servlet-container name="default">
+        <jsp-config/>
+        <websockets/>
+    </servlet-container>
+    <handlers>
+        <file name="welcome-content" path="${jboss.home.dir}/welcome-content"/>
+    </handlers>
+    <filters>
+        <response-header name="server-header" header-name="Server" header-value="WildFly/10"/>
+        <response-header name="x-powered-by-header" header-name="X-Powered-By" header-value="Undertow/1"/>
+    </filters>
+</subsystem>
+----
+
+== Buffer cache
+
+[source,xml]
+----
+    <buffer-cache name="default" buffer-size="1024" buffers-per-region="1024" max-regions="10"/>
+----
+
+* The buffer cache is used to cache static resources for maximum performance
+* Defaults to 10mb
+* Multiple caches can be configured, so different deployments use different cache sizes
+
+== Servlet Container
+
+[source,xml]
+----
+<servlet-container name="default" allow-non-standard-wrappers="false" default-session-timeout="30" >
+    <jsp-config/>
+    <websockets/>
+</servlet-container>
+----
+
+* Provides all Servlet, JSP and Websocket related config, including session related config
+* Most config can be overriden in web.xml
+* JSP config is the same as EAP6
+* It is possible to configure multiple Servlet containers, to allow multiple deployments to be deployed to the same context path on different virtual hosts
+* Websockets can be disabled by removing the config
+* http://wildscribe.github.io/Wildfly/9.0.0.CR2/subsystem/undertow/servlet-container/index.html
+
+== Handlers and filters
+
+[source,xml]
+----
+<handlers>
+    <file name="welcome-content" path="${jboss.home.dir}/welcome-content"/>
+</handlers>
+<filters>
+    <response-header name="server-header" header-name="Server" header-value="WildFly/10"/>
+    <response-header name="x-powered-by-header" header-name="X-Powered-By" header-value="Undertow/1"/>
+</filters>
+----
+
+* File handlers serve static files, they must be attached to a location in a virtual host
+* Filters modify some aspect of the request (although they are still just `HttpHandler` implementations)
+* Common use cases are setting headers or GZIP compression
+* Functionally equivalent to global valves
+* Predicates can be used to control when they execute (more on this later)
+
+== Server Config
+
+[source,xml]
+----
+<server name="default-server">
+    <http-listener name="default" socket-binding="http" redirect-socket="https"/>
+    <host name="default-host" alias="localhost">
+        <location name="/" handler="welcome-content"/>
+        <filter-ref name="server-header"/>
+        <filter-ref name="x-powered-by-header"/>
+    </host>
+</server>
+----
+
+* Listeners are equivalent to EAP6 connectors, http, https and AJP are supported
+* HTTP/2 is provided by setting `enable-http2` on the http or https listener
+* The host element provides virtual host config
+* Multiple servers can be configured which allow deployments and servers to be completely isolated, may be useful in muti-tenant environments
 
 
 == HTTP Upgrade
@@ -150,145 +263,6 @@ HTTP/1.1 101 Switching Protocols
 Upgrade: jboss-remoting
 Connection: Upgrade
 ----
-
-== Servlet 3.1
-
- * Undertow provides a fully compliant Servlet 3.1 container
-
-=== Notable Changes
- * Async IO Support
- * HTTP Upgrade Support
-
-== Async IO
-
- * Servlet 3.1 now provides support for non-blocking IO
-
-=== Traditional IO
-
- * Uses a thread per connection model
- * Reads and writes are blocking, the operation will not return until the operation is complete
- * A large number of connection directly translates to a large number of threads
-
-=== Non-blocking IO
-
- * Read and write operation are non-blocking, instead a callback mechanism is used to let you know when the operation is complete
- * A single thread can handle a large number of connections
- * Programmers must be careful not to perform blocking operations within the IO thread
- * Non-blocking code is generally more complex to write than blocking code
-
-== Servlet 3.1 Async IO
-
-=== Performing an async write
- * Call `ServletRequest.startAsync()` to put the request into async mode
- * Call `ServletOutputStream.setWriteListener(WriteListener writeListener)` to put the stream into async mode
- * The write listener will be invoked after the current request has returned to the container
- * You *must* call `ServletOutputStream.isReady()` before calling `write()`
- * When `isReady()` returns true you can call `write()`
- * If the socket cannot write out all the data it will be queued, `write()` will always return immediately
- * When `isReady()` return false then you cannot write, you must return and the write listener will be invoked again
- once the stream is ready to write.
-
-== Performing an async write (cont)
-
-[source,java]
-----
-protected void doGet(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException, IOException {
-    final AsyncContext context = req.startAsync();
-    final ServletOutputStream outputStream = resp.getOutputStream();
-    final String[] messages = {"Hello ", "async ", "world"};
-    outputStream.setWriteListener(new WriteListener() {
-        int pos = 0;
-        @Override
-        public synchronized void onWritePossible() throws IOException {
-            while (outputStream.isReady() && pos < messages.length()) {
-                outputStream.write(messages[pos++].getBytes());
-            }
-            if (pos == messages.length()) context.complete();
-        }
-    });
-}
-----
-
-== The Servlet Upgrade API
-
- * To upgrade the request we call `<T extends HttpUpgradeHandler> T HttpServletRequest.upgrade(Class<T> handlerClass)`
- * We are still responsible for checking for the `Upgrade` header, and setting and appropriate response headers
- * Once the request is finished the resulting `HttpUpgradeHandler` will take over the connection, and can send and receive
-  data via the provided `WebConnection` and its associated streams.
- * Upgraded connection can use the async IO capabilities of `ServletInputStream` and `ServletOutputStream`
-
-== The Servlet Upgrade API (cont)
-[source,java]
-----
-public class MyProtocolUpgradeFilter implements Filter {
-
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-
-        HttpServletRequest req = (HttpServletRequest) request;
-        if("my-protocol".equals(req.getHeader("Upgrade"))) {
-            HttpServletResponse resp = (HttpServletResponse) response;
-            resp.setHeader("Upgrade", "my-protocol");
-            req.upgrade(MyProtocolHandler.class);
-            return;
-        }
-        chain.doFilter(request, response);
-    }
-    ...
-----
-
-== The Servlet Upgrade API Continued
-[source,java]
-----
-public interface HttpUpgradeHandler {
-
-    public void init(WebConnection wc);
-
-    public void destroy();
-}
-
-public interface WebConnection extends AutoCloseable {
-
-    public ServletInputStream getInputStream() throws IOException;
-
-    public ServletOutputStream getOutputStream() throws IOException;
-}
-----
-
-== Embedded Undertow Servlet
-
- * Undertow has been designed to be easy to embed
- * Has a fluent API that makes it easy to build and deploy servlet applications
- * This API is exactly the same API that Wildfly uses to integrate Undertow
- * Can also be used by Servlet deployments to extend Undertow, and use the native API in a Servlet deployment
-
-== Servlet Extensions
- * Undertow provides the ability to customise a deployment via the `io.undertow.servlet.ServletExtension` interface
- * Similar to a `ServletContainerInitializer` but more flexible, as any part of the deployment can be changed
- * Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
- * Gives you access to the `DeploymentInfo` structure, so you have access to the same API that Wildfly used to build the deployment
-
-[source,java]
-----
-public interface ServletExtension {
-    void handleDeployment(final DeploymentInfo d, final ServletContextImpl s);
-}
-----
-
-== Example Extension
-[source,java]
-----
-public void handleDeployment(final DeploymentInfo d, final ServletContextImpl s) {
-    d.addInitialHandlerChainWrapper(new HandlerWrapper() {
-        public HttpHandler wrap(final HttpHandler servletHandler) {
-            final ResourceHandler r = Handlers.resource(d.getResourceManager());
-            return Handlers.predicate(
-                Predicates.suffixs(".css", ".js"), r, servletHandler);
-        }
-    });
-}
-----
-
-
 
 == Attributes, Predicates and Handlers
  * Undertow provides a built in DSL to configure handlers
@@ -437,6 +411,140 @@ regex['/a(.*)'] -> { set[attribute='%{o,Location}', value='/b${1}']; response-co
 * http://wildscribe.github.io/Wildfly/9.0.0.CR2/subsystem/undertow/configuration/filter/mod-cluster/index.html
 
 
+== Servlet 3.1
+
+ * Undertow provides a fully compliant Servlet 3.1 container
+
+=== Notable Changes
+ * Async IO Support
+ * HTTP Upgrade Support
+
+== Async IO
+
+ * Servlet 3.1 now provides support for non-blocking IO
+
+=== Traditional IO
+
+ * Uses a thread per connection model
+ * Reads and writes are blocking, the operation will not return until the operation is complete
+ * A large number of connection directly translates to a large number of threads
+
+=== Non-blocking IO
+
+ * Read and write operation are non-blocking, instead a callback mechanism is used to let you know when the operation is complete
+ * A single thread can handle a large number of connections
+ * Programmers must be careful not to perform blocking operations within the IO thread
+ * Non-blocking code is generally more complex to write than blocking code
+
+== Servlet 3.1 Async IO
+
+=== Performing an async write
+ * Call `ServletRequest.startAsync()` to put the request into async mode
+ * Call `ServletOutputStream.setWriteListener(WriteListener writeListener)` to put the stream into async mode
+ * The write listener will be invoked after the current request has returned to the container
+ * You *must* call `ServletOutputStream.isReady()` before calling `write()`
+ * When `isReady()` returns true you can call `write()`
+ * If the socket cannot write out all the data it will be queued, `write()` will always return immediately
+ * When `isReady()` return false then you cannot write, you must return and the write listener will be invoked again
+ once the stream is ready to write.
+
+== Performing an async write (cont)
+
+[source,java]
+----
+protected void doGet(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException, IOException {
+    final AsyncContext context = req.startAsync();
+    final ServletOutputStream outputStream = resp.getOutputStream();
+    final String[] messages = {"Hello ", "async ", "world"};
+    outputStream.setWriteListener(new WriteListener() {
+        int pos = 0;
+        @Override
+        public synchronized void onWritePossible() throws IOException {
+            while (outputStream.isReady() && pos < messages.length()) {
+                outputStream.write(messages[pos++].getBytes());
+            }
+            if (pos == messages.length()) context.complete();
+        }
+    });
+}
+----
+
+== The Servlet Upgrade API
+
+ * To upgrade the request we call `<T extends HttpUpgradeHandler> T HttpServletRequest.upgrade(Class<T> handlerClass)`
+ * We are still responsible for checking for the `Upgrade` header, and setting and appropriate response headers
+ * Once the request is finished the resulting `HttpUpgradeHandler` will take over the connection, and can send and receive
+  data via the provided `WebConnection` and its associated streams.
+ * Upgraded connection can use the async IO capabilities of `ServletInputStream` and `ServletOutputStream`
+
+== The Servlet Upgrade API (cont)
+[source,java]
+----
+public class MyProtocolUpgradeFilter implements Filter {
+
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+
+        HttpServletRequest req = (HttpServletRequest) request;
+        if("my-protocol".equals(req.getHeader("Upgrade"))) {
+            HttpServletResponse resp = (HttpServletResponse) response;
+            resp.setHeader("Upgrade", "my-protocol");
+            req.upgrade(MyProtocolHandler.class);
+            return;
+        }
+        chain.doFilter(request, response);
+    }
+    ...
+----
+
+== The Servlet Upgrade API Continued
+[source,java]
+----
+public interface HttpUpgradeHandler {
+
+    public void init(WebConnection wc);
+
+    public void destroy();
+}
+
+public interface WebConnection extends AutoCloseable {
+
+    public ServletInputStream getInputStream() throws IOException;
+
+    public ServletOutputStream getOutputStream() throws IOException;
+}
+----
+
+== Servlet Extensions
+ * Undertow provides the ability to customise a deployment via the `io.undertow.servlet.ServletExtension` interface
+ * Similar to a `ServletContainerInitializer` but more flexible, as any part of the deployment can be changed
+ * Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
+ * Gives you access to the `DeploymentInfo` structure, so you have access to the same API that Wildfly used to build the deployment
+
+[source,java]
+----
+public interface ServletExtension {
+    void handleDeployment(final DeploymentInfo d, final ServletContextImpl s);
+}
+----
+
+== Example Extension
+[source,java]
+----
+public void handleDeployment(final DeploymentInfo d, final ServletContextImpl s) {
+    d.addInitialHandlerChainWrapper(new HandlerWrapper() {
+        public HttpHandler wrap(final HttpHandler servletHandler) {
+            final ResourceHandler r = Handlers.resource(d.getResourceManager());
+            return Handlers.predicate(
+                Predicates.suffixs(".css", ".js"), r, servletHandler);
+        }
+    });
+}
+----
+
+
+
+
+
 == Undertow.js
  * Undertow.js allows you to use JavaScript to write HTTP and REST endpoints
  * Allows you to inject Java EE resources into your JavaScript handlers
@@ -484,99 +592,14 @@ $undertow
  * Plans for OpenSSL bindings for EAP 7.1
  * h2c (non-SSL HTTP/2) can still be used, but it is not supported by major browsers, the main use case from an EAP7 point of view is as a replacement for AJP
 
-== Websockets
-
-=== Introduction
-
- * The websocket specification allows browsers and other clients to initiate a full duplex connection to the server
- * This connection is initiated via a HTTP upgrade request
- * Websockets is a framed protocol, all data is sent as part of a frame
- * Frames have a header that specifies the length and the frame type (+ some other stuff)
-
-== Web Socket frames
-
- * Websockets defines the following frame types:
-  - Text - UTF-8 text frame
-  - Binary - Raw binary data
-  - Ping - Either side can send this to verify the the other endpoint is still connected
-  - Pong - Response to a ping frame
-  - Close - Sent to indicate the connection is being closed
-  - Continuation - Continuation of a text or binary frame
 
 == Wildfly websocket support
 
  * Wildfly supports websockets using Undertow's websocket implementation
  * Provides support for the standard Java Web Socket API (JSR-356, a required part of EE7)
  * Because of this frameworks such as Atmosphere that use JSR-356 work out of the box
+ * Undertow supports version 1.1 of JSR-356, and websockets are enabled by default
 
-== The Java Web Socket API
- * The Websocket API provides both annotated and programatic API's to send an receive Websocket messages
- * It can act as both the server and the client
- * It provides a means of customising deployed endpoints via the `javax.websocket.server.ServerApplicationConfig` interface
- * Provides `Encoder` and `Decoder` interfaces, to encode objects as messages and visa versa
-
-== Annotated Server Endpoint Example
-
-[source,java]
-----
-@ServerEndpoint("/websocket/{name}") //note the URL template.
-public class HelloEndpoint {
-
-    @OnOpen //invoked when the client first connects
-    public void onOpen(final Session session) {
-        session.getAsyncRemote().sendText("hi");
-    }
-
-    @OnMessage //handles text messages
-    public String message(String message, @PathParam("name") String name) {
-        return "Hello " + name + " you sent" + message;
-    }
-}
-----
-
-== Another Annotated Server Endpoint Example
-
-[source,java]
-----
-@ServerEndpoint("/websocket/{name}") //note the URL template.
-public class HelloEndpoint {
-
-    @OnMessage //handles binary messages
-    public byte[] binaryMessage(byte[] binaryMessage) {
-        return binaryMessage; //echo binary data
-    }
-
-    @OnClose //invoked when the connection is closed
-    public void onClose(final Session session) {
-        System.out.println("Connection closed");
-    }
-}
-----
-
-== Annotated Client Endpoint Example
-
-[source,java]
-----
-@ClientEndpoint
-public class AnnotatedClientEndpoint {
-
-    @OnOpen
-    public void onOpen(final Session session) {
-        session.getAsyncRemote().sendText("hi");
-    }
-
-    @OnMessage
-    public void onMessage(final String message, final Session session) {
-        System.out.println(message);
-    }
-}
-----
-
-== Connecting an Annotated Client Endpoint
-
-[source,java]
-----
-ServerContainer sc = servletContext.getAttribute("javax.websocket.server.ServerContainer");
-Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws://example.com/chat/Stuart"));
-Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
-----
+== Links
+ * http://wildscribe.github.io/
+ * http://undertow.io

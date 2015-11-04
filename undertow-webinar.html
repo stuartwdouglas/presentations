@@ -2488,16 +2488,10 @@ This module splits a long slide into multiple slides.
 Architecture
 </li>
 <li class="">
+Configuration overview
+</li>
+<li class="">
 HTTP Upgrade (Port reduction)
-</li>
-<li class="">
-Servlet 3.1
-</li>
-<li class="">
-Servlet Extensions
-</li>
-<li class="">
-Web Sockets
 </li>
 <li class="">
 Undertow handlers and predicates
@@ -2506,10 +2500,19 @@ Undertow handlers and predicates
 Undertow as a load balancer
 </li>
 <li class="">
+Servlet 3.1
+</li>
+<li class="">
+Servlet Extensions
+</li>
+<li class="">
 Undertow.js
 </li>
 <li class="">
 HTTP/2
+</li>
+<li class="">
+Web Sockets
 </li>
 </ul>
 </section>
@@ -2543,10 +2546,10 @@ Contains a high performance reverse proxy implementation
 <h2>Architecture</h2>
 <ul>
 <li class="">
-An undertow server consists of one or more connectors and one or more <code>HttpHandler</code> instances
+An undertow server consists of one or more listeners and one or more <code>HttpHandler</code> instances
 </li>
 <li class="">
-Requests come in through a connector
+Requests come in through a listener
 </li>
 <li class="">
 Once a request has been fully read a <code>HttpServerExchange</code> object is constructed, this object represents both the request and response
@@ -2626,6 +2629,172 @@ By default an exchange will use non-blocking IO
 <img src="architecture.svg" alt="Diagram" class=""/>
 </section>
 <section class="slide">
+<h2>Undertow config</h2>
+<ul>
+<li class="">
+Undertow configuration is provided by the Undertow Subsystem and the IO subsystem
+</li>
+<li class="">
+IO subsystem configures XNIO worker and buffer pools
+</li>
+<li class="">
+Everything else configured in Undertow subsystem
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>IO Subsystem</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre>        <span class="nt">&lt;subsystem</span> <span class="na">xmlns=</span><span class="s">&quot;urn:jboss:domain:io:1.1&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;worker</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;buffer-pool</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span><span class="nt">/&gt;</span>
+        <span class="nt">&lt;/subsystem&gt;</span>
+</pre></div></div></div>
+<ul>
+<li class="">
+Worker provides the thread pool and IO threads
+</li>
+<li class="">
+Defaults to CPU * 16 worker threads, CPU count * 2 IO threads
+</li>
+<li class="">
+Buffer pool provides the buffers that Undertow uses for IO
+</li>
+<li class="">
+Defaults to 16kb which should give optimal performance (unless available heap is &#8656; 128mb)
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Undertow subsystem</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nt">&lt;subsystem</span> <span class="na">xmlns=</span><span class="s">&quot;urn:jboss:domain:undertow:3.0&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;buffer-cache</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;server</span> <span class="na">name=</span><span class="s">&quot;default-server&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;http-listener</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span> <span class="na">socket-binding=</span><span class="s">&quot;http&quot;</span> <span class="na">redirect-socket=</span><span class="s">&quot;https&quot;</span><span class="nt">/&gt;</span>
+        <span class="nt">&lt;host</span> <span class="na">name=</span><span class="s">&quot;default-host&quot;</span> <span class="na">alias=</span><span class="s">&quot;localhost&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;location</span> <span class="na">name=</span><span class="s">&quot;/&quot;</span> <span class="na">handler=</span><span class="s">&quot;welcome-content&quot;</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;filter-ref</span> <span class="na">name=</span><span class="s">&quot;server-header&quot;</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;filter-ref</span> <span class="na">name=</span><span class="s">&quot;x-powered-by-header&quot;</span><span class="nt">/&gt;</span>
+        <span class="nt">&lt;/host&gt;</span>
+    <span class="nt">&lt;/server&gt;</span>
+    <span class="nt">&lt;servlet-container</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;jsp-config/&gt;</span>
+        <span class="nt">&lt;websockets/&gt;</span>
+    <span class="nt">&lt;/servlet-container&gt;</span>
+    <span class="nt">&lt;handlers&gt;</span>
+        <span class="nt">&lt;file</span> <span class="na">name=</span><span class="s">&quot;welcome-content&quot;</span> <span class="na">path=</span><span class="s">&quot;${jboss.home.dir}/welcome-content&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/handlers&gt;</span>
+    <span class="nt">&lt;filters&gt;</span>
+        <span class="nt">&lt;response-header</span> <span class="na">name=</span><span class="s">&quot;server-header&quot;</span> <span class="na">header-name=</span><span class="s">&quot;Server&quot;</span> <span class="na">header-value=</span><span class="s">&quot;WildFly/10&quot;</span><span class="nt">/&gt;</span>
+        <span class="nt">&lt;response-header</span> <span class="na">name=</span><span class="s">&quot;x-powered-by-header&quot;</span> <span class="na">header-name=</span><span class="s">&quot;X-Powered-By&quot;</span> <span class="na">header-value=</span><span class="s">&quot;Undertow/1&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/filters&gt;</span>
+<span class="nt">&lt;/subsystem&gt;</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Buffer cache</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre>    <span class="nt">&lt;buffer-cache</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span> <span class="na">buffer-size=</span><span class="s">&quot;1024&quot;</span> <span class="na">buffers-per-region=</span><span class="s">&quot;1024&quot;</span> <span class="na">max-regions=</span><span class="s">&quot;10&quot;</span><span class="nt">/&gt;</span>
+</pre></div></div></div>
+<ul>
+<li class="">
+The buffer cache is used to cache static resources for maximum performance
+</li>
+<li class="">
+Defaults to 10mb
+</li>
+<li class="">
+Multiple caches can be configured, so different deployments use different cache sizes
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Servlet Container</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nt">&lt;servlet-container</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span> <span class="na">allow-non-standard-wrappers=</span><span class="s">&quot;false&quot;</span> <span class="na">default-session-timeout=</span><span class="s">&quot;30&quot;</span> <span class="nt">&gt;</span>
+    <span class="nt">&lt;jsp-config/&gt;</span>
+    <span class="nt">&lt;websockets/&gt;</span>
+<span class="nt">&lt;/servlet-container&gt;</span>
+</pre></div></div></div>
+<ul>
+<li class="">
+Provides all Servlet, JSP and Websocket related config, including session related config
+</li>
+<li class="">
+Most config can be overriden in web.xml
+</li>
+<li class="">
+JSP config is the same as EAP6
+</li>
+<li class="">
+It is possible to configure multiple Servlet containers, to allow multiple deployments to be deployed to the same context path on different virtual hosts
+</li>
+<li class="">
+Websockets can be disabled by removing the config
+</li>
+<li class="">
+<a href="http://wildscribe.github.io/Wildfly/9.0.0.CR2/subsystem/undertow/servlet-container/index.html">http://wildscribe.github.io/Wildfly/9.0.0.CR2/subsystem/undertow/servlet-container/index.html</a>
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Handlers and filters</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nt">&lt;handlers&gt;</span>
+    <span class="nt">&lt;file</span> <span class="na">name=</span><span class="s">&quot;welcome-content&quot;</span> <span class="na">path=</span><span class="s">&quot;${jboss.home.dir}/welcome-content&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/handlers&gt;</span>
+<span class="nt">&lt;filters&gt;</span>
+    <span class="nt">&lt;response-header</span> <span class="na">name=</span><span class="s">&quot;server-header&quot;</span> <span class="na">header-name=</span><span class="s">&quot;Server&quot;</span> <span class="na">header-value=</span><span class="s">&quot;WildFly/10&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;response-header</span> <span class="na">name=</span><span class="s">&quot;x-powered-by-header&quot;</span> <span class="na">header-name=</span><span class="s">&quot;X-Powered-By&quot;</span> <span class="na">header-value=</span><span class="s">&quot;Undertow/1&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/filters&gt;</span>
+</pre></div></div></div>
+<ul>
+<li class="">
+File handlers serve static files, they must be attached to a location in a virtual host
+</li>
+<li class="">
+Filters modify some aspect of the request (although they are still just <code>HttpHandler</code> implementations)
+</li>
+<li class="">
+Common use cases are setting headers or GZIP compression
+</li>
+<li class="">
+Functionally equivalent to global valves
+</li>
+<li class="">
+Predicates can be used to control when they execute (more on this later)
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Server Config</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nt">&lt;server</span> <span class="na">name=</span><span class="s">&quot;default-server&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;http-listener</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span> <span class="na">socket-binding=</span><span class="s">&quot;http&quot;</span> <span class="na">redirect-socket=</span><span class="s">&quot;https&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;host</span> <span class="na">name=</span><span class="s">&quot;default-host&quot;</span> <span class="na">alias=</span><span class="s">&quot;localhost&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;location</span> <span class="na">name=</span><span class="s">&quot;/&quot;</span> <span class="na">handler=</span><span class="s">&quot;welcome-content&quot;</span><span class="nt">/&gt;</span>
+        <span class="nt">&lt;filter-ref</span> <span class="na">name=</span><span class="s">&quot;server-header&quot;</span><span class="nt">/&gt;</span>
+        <span class="nt">&lt;filter-ref</span> <span class="na">name=</span><span class="s">&quot;x-powered-by-header&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/host&gt;</span>
+<span class="nt">&lt;/server&gt;</span>
+</pre></div></div></div>
+<ul>
+<li class="">
+Listeners are equivalent to EAP6 connectors, http, https and AJP are supported
+</li>
+<li class="">
+HTTP/2 is provided by setting <code>enable-http2</code> on the http or https listener
+</li>
+<li class="">
+The host element provides virtual host config
+</li>
+<li class="">
+Multiple servers can be configured which allow deployments and servers to be completely isolated, may be useful in muti-tenant environments
+</li>
+</ul>
+</section>
+<section class="slide">
 <h2>HTTP Upgrade</h2>
 <div class="sect2">
 <h3 id="_what_is_it">What is it</h3>
@@ -2703,222 +2872,6 @@ Upgrade: jboss-remoting
 Connection: Upgrade</tt></pre>
 </div></div>
 </div>
-</section>
-<section class="slide">
-<h2>Servlet 3.1</h2>
-<ul>
-<li class="">
-Undertow provides a fully compliant Servlet 3.1 container
-</li>
-</ul>
-<div class="sect2">
-<h3 id="_notable_changes">Notable Changes</h3>
-<ul>
-<li class="">
-Async IO Support
-</li>
-<li class="">
-HTTP Upgrade Support
-</li>
-</ul>
-</div>
-</section>
-<section class="slide">
-<h2>Async IO</h2>
-<ul>
-<li class="">
-Servlet 3.1 now provides support for non-blocking IO
-</li>
-</ul>
-<div class="sect2">
-<h3 id="_traditional_io">Traditional IO</h3>
-<ul>
-<li class="">
-Uses a thread per connection model
-</li>
-<li class="">
-Reads and writes are blocking, the operation will not return until the operation is complete
-</li>
-<li class="">
-A large number of connection directly translates to a large number of threads
-</li>
-</ul>
-</div>
-<div class="sect2">
-<h3 id="_non_blocking_io">Non-blocking IO</h3>
-<ul>
-<li class="">
-Read and write operation are non-blocking, instead a callback mechanism is used to let you know when the operation is complete
-</li>
-<li class="">
-A single thread can handle a large number of connections
-</li>
-<li class="">
-Programmers must be careful not to perform blocking operations within the IO thread
-</li>
-<li class="">
-Non-blocking code is generally more complex to write than blocking code
-</li>
-</ul>
-</div>
-</section>
-<section class="slide">
-<h2>Servlet 3.1 Async IO</h2>
-<div class="sect2">
-<h3 id="_performing_an_async_write">Performing an async write</h3>
-<ul>
-<li class="">
-Call <code>ServletRequest.startAsync()</code> to put the request into async mode
-</li>
-<li class="">
-Call <code>ServletOutputStream.setWriteListener(WriteListener writeListener)</code> to put the stream into async mode
-</li>
-<li class="">
-The write listener will be invoked after the current request has returned to the container
-</li>
-<li class="">
-You <strong>must</strong> call <code>ServletOutputStream.isReady()</code> before calling <code>write()</code>
-</li>
-<li class="">
-When <code>isReady()</code> returns true you can call <code>write()</code>
-</li>
-<li class="">
-If the socket cannot write out all the data it will be queued, <code>write()</code> will always return immediately
-</li>
-<li class="">
-When <code>isReady()</code> return false then you cannot write, you must return and the write listener will be invoked again
- once the stream is ready to write.
-</li>
-</ul>
-</div>
-</section>
-<section class="slide">
-<h2>Performing an async write (cont)</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="kd">protected</span> <span class="kt">void</span> <span class="nf">doGet</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServletRequest</span> <span class="n">req</span><span class="o">,</span> <span class="kd">final</span> <span class="n">HttpServletResponse</span> <span class="n">resp</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">ServletException</span><span class="o">,</span> <span class="n">IOException</span> <span class="o">{</span>
-    <span class="kd">final</span> <span class="n">AsyncContext</span> <span class="n">context</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="na">startAsync</span><span class="o">();</span>
-    <span class="kd">final</span> <span class="n">ServletOutputStream</span> <span class="n">outputStream</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="na">getOutputStream</span><span class="o">();</span>
-    <span class="kd">final</span> <span class="n">String</span><span class="o">[]</span> <span class="n">messages</span> <span class="o">=</span> <span class="o">{</span><span class="s">&quot;Hello &quot;</span><span class="o">,</span> <span class="s">&quot;async &quot;</span><span class="o">,</span> <span class="s">&quot;world&quot;</span><span class="o">};</span>
-    <span class="n">outputStream</span><span class="o">.</span><span class="na">setWriteListener</span><span class="o">(</span><span class="k">new</span> <span class="n">WriteListener</span><span class="o">()</span> <span class="o">{</span>
-        <span class="kt">int</span> <span class="n">pos</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
-        <span class="nd">@Override</span>
-        <span class="kd">public</span> <span class="kd">synchronized</span> <span class="kt">void</span> <span class="nf">onWritePossible</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span> <span class="o">{</span>
-            <span class="k">while</span> <span class="o">(</span><span class="n">outputStream</span><span class="o">.</span><span class="na">isReady</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="n">pos</span> <span class="o">&lt;</span> <span class="n">messages</span><span class="o">.</span><span class="na">length</span><span class="o">())</span> <span class="o">{</span>
-                <span class="n">outputStream</span><span class="o">.</span><span class="na">write</span><span class="o">(</span><span class="n">messages</span><span class="o">[</span><span class="n">pos</span><span class="o">++].</span><span class="na">getBytes</span><span class="o">());</span>
-            <span class="o">}</span>
-            <span class="k">if</span> <span class="o">(</span><span class="n">pos</span> <span class="o">==</span> <span class="n">messages</span><span class="o">.</span><span class="na">length</span><span class="o">())</span> <span class="n">context</span><span class="o">.</span><span class="na">complete</span><span class="o">();</span>
-        <span class="o">}</span>
-    <span class="o">});</span>
-<span class="o">}</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>The Servlet Upgrade API</h2>
-<ul>
-<li class="">
-To upgrade the request we call <code>&lt;T extends HttpUpgradeHandler&gt; T HttpServletRequest.upgrade(Class&lt;T&gt; handlerClass)</code>
-</li>
-<li class="">
-We are still responsible for checking for the <code>Upgrade</code> header, and setting and appropriate response headers
-</li>
-<li class="">
-Once the request is finished the resulting <code>HttpUpgradeHandler</code> will take over the connection, and can send and receive
-  data via the provided <code>WebConnection</code> and its associated streams.
-</li>
-<li class="">
-Upgraded connection can use the async IO capabilities of <code>ServletInputStream</code> and <code>ServletOutputStream</code>
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>The Servlet Upgrade API (cont)</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyProtocolUpgradeFilter</span> <span class="kd">implements</span> <span class="n">Filter</span> <span class="o">{</span>
-
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">doFilter</span><span class="o">(</span><span class="n">ServletRequest</span> <span class="n">request</span><span class="o">,</span> <span class="n">ServletResponse</span> <span class="n">response</span><span class="o">,</span> <span class="n">FilterChain</span> <span class="n">chain</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">,</span> <span class="n">ServletException</span> <span class="o">{</span>
-
-        <span class="n">HttpServletRequest</span> <span class="n">req</span> <span class="o">=</span> <span class="o">(</span><span class="n">HttpServletRequest</span><span class="o">)</span> <span class="n">request</span><span class="o">;</span>
-        <span class="k">if</span><span class="o">(</span><span class="s">&quot;my-protocol&quot;</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">req</span><span class="o">.</span><span class="na">getHeader</span><span class="o">(</span><span class="s">&quot;Upgrade&quot;</span><span class="o">)))</span> <span class="o">{</span>
-            <span class="n">HttpServletResponse</span> <span class="n">resp</span> <span class="o">=</span> <span class="o">(</span><span class="n">HttpServletResponse</span><span class="o">)</span> <span class="n">response</span><span class="o">;</span>
-            <span class="n">resp</span><span class="o">.</span><span class="na">setHeader</span><span class="o">(</span><span class="s">&quot;Upgrade&quot;</span><span class="o">,</span> <span class="s">&quot;my-protocol&quot;</span><span class="o">);</span>
-            <span class="n">req</span><span class="o">.</span><span class="na">upgrade</span><span class="o">(</span><span class="n">MyProtocolHandler</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
-            <span class="k">return</span><span class="o">;</span>
-        <span class="o">}</span>
-        <span class="n">chain</span><span class="o">.</span><span class="na">doFilter</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="n">response</span><span class="o">);</span>
-    <span class="o">}</span>
-    <span class="o">...</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>The Servlet Upgrade API Continued</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">HttpUpgradeHandler</span> <span class="o">{</span>
-
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">init</span><span class="o">(</span><span class="n">WebConnection</span> <span class="n">wc</span><span class="o">);</span>
-
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">destroy</span><span class="o">();</span>
-<span class="o">}</span>
-
-<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">WebConnection</span> <span class="kd">extends</span> <span class="n">AutoCloseable</span> <span class="o">{</span>
-
-    <span class="kd">public</span> <span class="n">ServletInputStream</span> <span class="nf">getInputStream</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">;</span>
-
-    <span class="kd">public</span> <span class="n">ServletOutputStream</span> <span class="nf">getOutputStream</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">;</span>
-<span class="o">}</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Embedded Undertow Servlet</h2>
-<ul>
-<li class="">
-Undertow has been designed to be easy to embed
-</li>
-<li class="">
-Has a fluent API that makes it easy to build and deploy servlet applications
-</li>
-<li class="">
-This API is exactly the same API that Wildfly uses to integrate Undertow
-</li>
-<li class="">
-Can also be used by Servlet deployments to extend Undertow, and use the native API in a Servlet deployment
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>Servlet Extensions</h2>
-<ul>
-<li class="">
-Undertow provides the ability to customise a deployment via the <code>io.undertow.servlet.ServletExtension</code> interface
-</li>
-<li class="">
-Similar to a <code>ServletContainerInitializer</code> but more flexible, as any part of the deployment can be changed
-</li>
-<li class="">
-Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
-</li>
-<li class="">
-Gives you access to the <code>DeploymentInfo</code> structure, so you have access to the same API that Wildfly used to build the deployment
-</li>
-</ul>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">ServletExtension</span> <span class="o">{</span>
-    <span class="kt">void</span> <span class="nf">handleDeployment</span><span class="o">(</span><span class="kd">final</span> <span class="n">DeploymentInfo</span> <span class="n">d</span><span class="o">,</span> <span class="kd">final</span> <span class="n">ServletContextImpl</span> <span class="n">s</span><span class="o">);</span>
-<span class="o">}</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Example Extension</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleDeployment</span><span class="o">(</span><span class="kd">final</span> <span class="n">DeploymentInfo</span> <span class="n">d</span><span class="o">,</span> <span class="kd">final</span> <span class="n">ServletContextImpl</span> <span class="n">s</span><span class="o">)</span> <span class="o">{</span>
-    <span class="n">d</span><span class="o">.</span><span class="na">addInitialHandlerChainWrapper</span><span class="o">(</span><span class="k">new</span> <span class="n">HandlerWrapper</span><span class="o">()</span> <span class="o">{</span>
-        <span class="kd">public</span> <span class="n">HttpHandler</span> <span class="nf">wrap</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpHandler</span> <span class="n">servletHandler</span><span class="o">)</span> <span class="o">{</span>
-            <span class="kd">final</span> <span class="n">ResourceHandler</span> <span class="n">r</span> <span class="o">=</span> <span class="n">Handlers</span><span class="o">.</span><span class="na">resource</span><span class="o">(</span><span class="n">d</span><span class="o">.</span><span class="na">getResourceManager</span><span class="o">());</span>
-            <span class="k">return</span> <span class="n">Handlers</span><span class="o">.</span><span class="na">predicate</span><span class="o">(</span>
-                <span class="n">Predicates</span><span class="o">.</span><span class="na">suffixs</span><span class="o">(</span><span class="s">&quot;.css&quot;</span><span class="o">,</span> <span class="s">&quot;.js&quot;</span><span class="o">),</span> <span class="n">r</span><span class="o">,</span> <span class="n">servletHandler</span><span class="o">);</span>
-        <span class="o">}</span>
-    <span class="o">});</span>
-<span class="o">}</span>
-</pre></div></div></div>
 </section>
 <section class="slide">
 <h2>Attributes, Predicates and Handlers</h2>
@@ -3214,6 +3167,205 @@ This includes all management operations that would have previously been done und
 </div>
 </section>
 <section class="slide">
+<h2>Servlet 3.1</h2>
+<ul>
+<li class="">
+Undertow provides a fully compliant Servlet 3.1 container
+</li>
+</ul>
+<div class="sect2">
+<h3 id="_notable_changes">Notable Changes</h3>
+<ul>
+<li class="">
+Async IO Support
+</li>
+<li class="">
+HTTP Upgrade Support
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Async IO</h2>
+<ul>
+<li class="">
+Servlet 3.1 now provides support for non-blocking IO
+</li>
+</ul>
+<div class="sect2">
+<h3 id="_traditional_io">Traditional IO</h3>
+<ul>
+<li class="">
+Uses a thread per connection model
+</li>
+<li class="">
+Reads and writes are blocking, the operation will not return until the operation is complete
+</li>
+<li class="">
+A large number of connection directly translates to a large number of threads
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_non_blocking_io">Non-blocking IO</h3>
+<ul>
+<li class="">
+Read and write operation are non-blocking, instead a callback mechanism is used to let you know when the operation is complete
+</li>
+<li class="">
+A single thread can handle a large number of connections
+</li>
+<li class="">
+Programmers must be careful not to perform blocking operations within the IO thread
+</li>
+<li class="">
+Non-blocking code is generally more complex to write than blocking code
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Servlet 3.1 Async IO</h2>
+<div class="sect2">
+<h3 id="_performing_an_async_write">Performing an async write</h3>
+<ul>
+<li class="">
+Call <code>ServletRequest.startAsync()</code> to put the request into async mode
+</li>
+<li class="">
+Call <code>ServletOutputStream.setWriteListener(WriteListener writeListener)</code> to put the stream into async mode
+</li>
+<li class="">
+The write listener will be invoked after the current request has returned to the container
+</li>
+<li class="">
+You <strong>must</strong> call <code>ServletOutputStream.isReady()</code> before calling <code>write()</code>
+</li>
+<li class="">
+When <code>isReady()</code> returns true you can call <code>write()</code>
+</li>
+<li class="">
+If the socket cannot write out all the data it will be queued, <code>write()</code> will always return immediately
+</li>
+<li class="">
+When <code>isReady()</code> return false then you cannot write, you must return and the write listener will be invoked again
+ once the stream is ready to write.
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Performing an async write (cont)</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">protected</span> <span class="kt">void</span> <span class="nf">doGet</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServletRequest</span> <span class="n">req</span><span class="o">,</span> <span class="kd">final</span> <span class="n">HttpServletResponse</span> <span class="n">resp</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">ServletException</span><span class="o">,</span> <span class="n">IOException</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="n">AsyncContext</span> <span class="n">context</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="na">startAsync</span><span class="o">();</span>
+    <span class="kd">final</span> <span class="n">ServletOutputStream</span> <span class="n">outputStream</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="na">getOutputStream</span><span class="o">();</span>
+    <span class="kd">final</span> <span class="n">String</span><span class="o">[]</span> <span class="n">messages</span> <span class="o">=</span> <span class="o">{</span><span class="s">&quot;Hello &quot;</span><span class="o">,</span> <span class="s">&quot;async &quot;</span><span class="o">,</span> <span class="s">&quot;world&quot;</span><span class="o">};</span>
+    <span class="n">outputStream</span><span class="o">.</span><span class="na">setWriteListener</span><span class="o">(</span><span class="k">new</span> <span class="n">WriteListener</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kt">int</span> <span class="n">pos</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kd">synchronized</span> <span class="kt">void</span> <span class="nf">onWritePossible</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span> <span class="o">{</span>
+            <span class="k">while</span> <span class="o">(</span><span class="n">outputStream</span><span class="o">.</span><span class="na">isReady</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="n">pos</span> <span class="o">&lt;</span> <span class="n">messages</span><span class="o">.</span><span class="na">length</span><span class="o">())</span> <span class="o">{</span>
+                <span class="n">outputStream</span><span class="o">.</span><span class="na">write</span><span class="o">(</span><span class="n">messages</span><span class="o">[</span><span class="n">pos</span><span class="o">++].</span><span class="na">getBytes</span><span class="o">());</span>
+            <span class="o">}</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">pos</span> <span class="o">==</span> <span class="n">messages</span><span class="o">.</span><span class="na">length</span><span class="o">())</span> <span class="n">context</span><span class="o">.</span><span class="na">complete</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>The Servlet Upgrade API</h2>
+<ul>
+<li class="">
+To upgrade the request we call <code>&lt;T extends HttpUpgradeHandler&gt; T HttpServletRequest.upgrade(Class&lt;T&gt; handlerClass)</code>
+</li>
+<li class="">
+We are still responsible for checking for the <code>Upgrade</code> header, and setting and appropriate response headers
+</li>
+<li class="">
+Once the request is finished the resulting <code>HttpUpgradeHandler</code> will take over the connection, and can send and receive
+  data via the provided <code>WebConnection</code> and its associated streams.
+</li>
+<li class="">
+Upgraded connection can use the async IO capabilities of <code>ServletInputStream</code> and <code>ServletOutputStream</code>
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>The Servlet Upgrade API (cont)</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyProtocolUpgradeFilter</span> <span class="kd">implements</span> <span class="n">Filter</span> <span class="o">{</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">doFilter</span><span class="o">(</span><span class="n">ServletRequest</span> <span class="n">request</span><span class="o">,</span> <span class="n">ServletResponse</span> <span class="n">response</span><span class="o">,</span> <span class="n">FilterChain</span> <span class="n">chain</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">,</span> <span class="n">ServletException</span> <span class="o">{</span>
+
+        <span class="n">HttpServletRequest</span> <span class="n">req</span> <span class="o">=</span> <span class="o">(</span><span class="n">HttpServletRequest</span><span class="o">)</span> <span class="n">request</span><span class="o">;</span>
+        <span class="k">if</span><span class="o">(</span><span class="s">&quot;my-protocol&quot;</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">req</span><span class="o">.</span><span class="na">getHeader</span><span class="o">(</span><span class="s">&quot;Upgrade&quot;</span><span class="o">)))</span> <span class="o">{</span>
+            <span class="n">HttpServletResponse</span> <span class="n">resp</span> <span class="o">=</span> <span class="o">(</span><span class="n">HttpServletResponse</span><span class="o">)</span> <span class="n">response</span><span class="o">;</span>
+            <span class="n">resp</span><span class="o">.</span><span class="na">setHeader</span><span class="o">(</span><span class="s">&quot;Upgrade&quot;</span><span class="o">,</span> <span class="s">&quot;my-protocol&quot;</span><span class="o">);</span>
+            <span class="n">req</span><span class="o">.</span><span class="na">upgrade</span><span class="o">(</span><span class="n">MyProtocolHandler</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="n">chain</span><span class="o">.</span><span class="na">doFilter</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="n">response</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="o">...</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>The Servlet Upgrade API Continued</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">HttpUpgradeHandler</span> <span class="o">{</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">init</span><span class="o">(</span><span class="n">WebConnection</span> <span class="n">wc</span><span class="o">);</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">destroy</span><span class="o">();</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">WebConnection</span> <span class="kd">extends</span> <span class="n">AutoCloseable</span> <span class="o">{</span>
+
+    <span class="kd">public</span> <span class="n">ServletInputStream</span> <span class="nf">getInputStream</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="n">ServletOutputStream</span> <span class="nf">getOutputStream</span><span class="o">()</span> <span class="kd">throws</span> <span class="n">IOException</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Servlet Extensions</h2>
+<ul>
+<li class="">
+Undertow provides the ability to customise a deployment via the <code>io.undertow.servlet.ServletExtension</code> interface
+</li>
+<li class="">
+Similar to a <code>ServletContainerInitializer</code> but more flexible, as any part of the deployment can be changed
+</li>
+<li class="">
+Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
+</li>
+<li class="">
+Gives you access to the <code>DeploymentInfo</code> structure, so you have access to the same API that Wildfly used to build the deployment
+</li>
+</ul>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">ServletExtension</span> <span class="o">{</span>
+    <span class="kt">void</span> <span class="nf">handleDeployment</span><span class="o">(</span><span class="kd">final</span> <span class="n">DeploymentInfo</span> <span class="n">d</span><span class="o">,</span> <span class="kd">final</span> <span class="n">ServletContextImpl</span> <span class="n">s</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Example Extension</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleDeployment</span><span class="o">(</span><span class="kd">final</span> <span class="n">DeploymentInfo</span> <span class="n">d</span><span class="o">,</span> <span class="kd">final</span> <span class="n">ServletContextImpl</span> <span class="n">s</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">d</span><span class="o">.</span><span class="na">addInitialHandlerChainWrapper</span><span class="o">(</span><span class="k">new</span> <span class="n">HandlerWrapper</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">public</span> <span class="n">HttpHandler</span> <span class="nf">wrap</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpHandler</span> <span class="n">servletHandler</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">final</span> <span class="n">ResourceHandler</span> <span class="n">r</span> <span class="o">=</span> <span class="n">Handlers</span><span class="o">.</span><span class="na">resource</span><span class="o">(</span><span class="n">d</span><span class="o">.</span><span class="na">getResourceManager</span><span class="o">());</span>
+            <span class="k">return</span> <span class="n">Handlers</span><span class="o">.</span><span class="na">predicate</span><span class="o">(</span>
+                <span class="n">Predicates</span><span class="o">.</span><span class="na">suffixs</span><span class="o">(</span><span class="s">&quot;.css&quot;</span><span class="o">,</span> <span class="s">&quot;.js&quot;</span><span class="o">),</span> <span class="n">r</span><span class="o">,</span> <span class="n">servletHandler</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
 <h2>Undertow.js</h2>
 <ul>
 <li class="">
@@ -3293,54 +3445,6 @@ h2c (non-SSL HTTP/2) can still be used, but it is not supported by major browser
 </ul>
 </section>
 <section class="slide">
-<h2>Websockets</h2>
-<div class="sect2">
-<h3 id="_introduction">Introduction</h3>
-<ul>
-<li class="">
-The websocket specification allows browsers and other clients to initiate a full duplex connection to the server
-</li>
-<li class="">
-This connection is initiated via a HTTP upgrade request
-</li>
-<li class="">
-Websockets is a framed protocol, all data is sent as part of a frame
-</li>
-<li class="">
-Frames have a header that specifies the length and the frame type (+ some other stuff)
-</li>
-</ul>
-</div>
-</section>
-<section class="slide">
-<h2>Web Socket frames</h2>
-<ul>
-<li class="">
-Websockets defines the following frame types:
-<ul>
-<li class="">
-Text - UTF-8 text frame
-</li>
-<li class="">
-Binary - Raw binary data
-</li>
-<li class="">
-Ping - Either side can send this to verify the the other endpoint is still connected
-</li>
-<li class="">
-Pong - Response to a ping frame
-</li>
-<li class="">
-Close - Sent to indicate the connection is being closed
-</li>
-<li class="">
-Continuation - Continuation of a text or binary frame
-</li>
-</ul>
-</li>
-</ul>
-</section>
-<section class="slide">
 <h2>Wildfly websocket support</h2>
 <ul>
 <li class="">
@@ -3352,86 +3456,21 @@ Provides support for the standard Java Web Socket API (JSR-356, a required part 
 <li class="">
 Because of this frameworks such as Atmosphere that use JSR-356 work out of the box
 </li>
+<li class="">
+Undertow supports version 1.1 of JSR-356, and websockets are enabled by default
+</li>
 </ul>
 </section>
 <section class="slide">
-<h2>The Java Web Socket API</h2>
+<h2>Links</h2>
 <ul>
 <li class="">
-The Websocket API provides both annotated and programatic API&#8217;s to send an receive Websocket messages
+<a href="http://wildscribe.github.io/">http://wildscribe.github.io/</a>
 </li>
 <li class="">
-It can act as both the server and the client
-</li>
-<li class="">
-It provides a means of customising deployed endpoints via the <code>javax.websocket.server.ServerApplicationConfig</code> interface
-</li>
-<li class="">
-Provides <code>Encoder</code> and <code>Decoder</code> interfaces, to encode objects as messages and visa versa
+<a href="http://undertow.io">http://undertow.io</a>
 </li>
 </ul>
-</section>
-<section class="slide">
-<h2>Annotated Server Endpoint Example</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="nd">@ServerEndpoint</span><span class="o">(</span><span class="s">&quot;/websocket/{name}&quot;</span><span class="o">)</span> <span class="c1">//note the URL template.</span>
-<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloEndpoint</span> <span class="o">{</span>
-
-    <span class="nd">@OnOpen</span> <span class="c1">//invoked when the client first connects</span>
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onOpen</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
-        <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;hi&quot;</span><span class="o">);</span>
-    <span class="o">}</span>
-
-    <span class="nd">@OnMessage</span> <span class="c1">//handles text messages</span>
-    <span class="kd">public</span> <span class="n">String</span> <span class="nf">message</span><span class="o">(</span><span class="n">String</span> <span class="n">message</span><span class="o">,</span> <span class="nd">@PathParam</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">)</span> <span class="n">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
-        <span class="k">return</span> <span class="s">&quot;Hello &quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s">&quot; you sent&quot;</span> <span class="o">+</span> <span class="n">message</span><span class="o">;</span>
-    <span class="o">}</span>
-<span class="o">}</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Another Annotated Server Endpoint Example</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="nd">@ServerEndpoint</span><span class="o">(</span><span class="s">&quot;/websocket/{name}&quot;</span><span class="o">)</span> <span class="c1">//note the URL template.</span>
-<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloEndpoint</span> <span class="o">{</span>
-
-    <span class="nd">@OnMessage</span> <span class="c1">//handles binary messages</span>
-    <span class="kd">public</span> <span class="kt">byte</span><span class="o">[]</span> <span class="nf">binaryMessage</span><span class="o">(</span><span class="kt">byte</span><span class="o">[]</span> <span class="n">binaryMessage</span><span class="o">)</span> <span class="o">{</span>
-        <span class="k">return</span> <span class="n">binaryMessage</span><span class="o">;</span> <span class="c1">//echo binary data</span>
-    <span class="o">}</span>
-
-    <span class="nd">@OnClose</span> <span class="c1">//invoked when the connection is closed</span>
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onClose</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
-        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Connection closed&quot;</span><span class="o">);</span>
-    <span class="o">}</span>
-<span class="o">}</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Annotated Client Endpoint Example</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="nd">@ClientEndpoint</span>
-<span class="kd">public</span> <span class="kd">class</span> <span class="nc">AnnotatedClientEndpoint</span> <span class="o">{</span>
-
-    <span class="nd">@OnOpen</span>
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onOpen</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
-        <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;hi&quot;</span><span class="o">);</span>
-    <span class="o">}</span>
-
-    <span class="nd">@OnMessage</span>
-    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onMessage</span><span class="o">(</span><span class="kd">final</span> <span class="n">String</span> <span class="n">message</span><span class="o">,</span> <span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
-        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">message</span><span class="o">);</span>
-    <span class="o">}</span>
-<span class="o">}</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Connecting an Annotated Client Endpoint</h2>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="n">ServerContainer</span> <span class="n">sc</span> <span class="o">=</span> <span class="n">servletContext</span><span class="o">.</span><span class="na">getAttribute</span><span class="o">(</span><span class="s">&quot;javax.websocket.server.ServerContainer&quot;</span><span class="o">);</span>
-<span class="n">Session</span> <span class="n">session</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="na">connectToServer</span><span class="o">(</span><span class="n">AnnotatedClientEndpoint</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="k">new</span> <span class="n">URI</span><span class="o">(</span><span class="s">&quot;ws://example.com/chat/Stuart&quot;</span><span class="o">));</span>
-<span class="n">Future</span><span class="o">&lt;</span><span class="n">Void</span><span class="o">&gt;</span> <span class="n">future</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;Hello Websocket&quot;</span><span class="o">);</span>
-</pre></div></div></div>
 </section>
 <a href="#" class="deck-prev-link" title="Previous">&#8592;</a>
 <a href="#" class="deck-next-link" title="Next">&#8594;</a>
