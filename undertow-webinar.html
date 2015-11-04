@@ -2608,6 +2608,29 @@ Can read/write request/response via blocking or non-blocking IO
 </pre></div></div></div>
 </section>
 <section class="slide">
+<h2>HttpHandler example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">SetHeaderHandler</span> <span class="kd">implements</span> <span class="n">HttpHandler</span> <span class="o">{</span>
+
+    <span class="kd">private</span> <span class="kd">final</span> <span class="n">HttpString</span> <span class="n">header</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">value</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="n">HttpHandler</span> <span class="n">next</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="nf">SetHeaderHandler</span><span class="o">(</span><span class="n">HttpHandler</span> <span class="n">next</span><span class="o">,</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">header</span><span class="o">,</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">next</span> <span class="o">=</span> <span class="n">next</span><span class="o">;</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">header</span> <span class="o">=</span> <span class="k">new</span> <span class="n">HttpString</span><span class="o">(</span><span class="n">header</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRequest</span><span class="o">(</span><span class="kd">final</span> <span class="n">HttpServerExchange</span> <span class="n">exchange</span><span class="o">)</span> <span class="kd">throws</span> <span class="n">Exception</span> <span class="o">{</span>
+        <span class="n">exchange</span><span class="o">.</span><span class="na">getResponseHeaders</span><span class="o">().</span><span class="na">put</span><span class="o">(</span><span class="n">header</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+        <span class="n">next</span><span class="o">.</span><span class="na">handleRequest</span><span class="o">(</span><span class="n">exchange</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
 <h2>Blocking and Non Blocking IO</h2>
 <ul>
 <li class="">
@@ -2747,6 +2770,7 @@ Websockets can be disabled by removing the config
 <span class="nt">&lt;filters&gt;</span>
     <span class="nt">&lt;response-header</span> <span class="na">name=</span><span class="s">&quot;server-header&quot;</span> <span class="na">header-name=</span><span class="s">&quot;Server&quot;</span> <span class="na">header-value=</span><span class="s">&quot;WildFly/10&quot;</span><span class="nt">/&gt;</span>
     <span class="nt">&lt;response-header</span> <span class="na">name=</span><span class="s">&quot;x-powered-by-header&quot;</span> <span class="na">header-name=</span><span class="s">&quot;X-Powered-By&quot;</span> <span class="na">header-value=</span><span class="s">&quot;Undertow/1&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;expression-filter</span> <span class="na">name=</span><span class="s">&quot;myfilter&quot;</span> <span class="na">expression=</span><span class="s">&quot;method[POST] -&gt; header[name=my-header, value=my-value]&quot;</span> <span class="nt">/&gt;</span>
 <span class="nt">&lt;/filters&gt;</span>
 </pre></div></div></div>
 <ul>
@@ -2781,10 +2805,10 @@ Predicates can be used to control when they execute (more on this later)
 </pre></div></div></div>
 <ul>
 <li class="">
-Listeners are equivalent to EAP6 connectors, http, https and AJP are supported
+Listeners are equivalent to EAP6 connectors, HTTP, HTTPS and AJP are supported
 </li>
 <li class="">
-HTTP/2 is provided by setting <code>enable-http2</code> on the http or https listener
+HTTP/2 is provided by setting <code>enable-http2</code> on the HTTP or HTTPS listener
 </li>
 <li class="">
 The host element provides virtual host config
@@ -2793,6 +2817,213 @@ The host element provides virtual host config
 Multiple servers can be configured which allow deployments and servers to be completely isolated, may be useful in muti-tenant environments
 </li>
 </ul>
+</section>
+<section class="slide">
+<h2>Attributes, Predicates and Handlers</h2>
+<ul>
+<li class="">
+Undertow provides a built in DSL to configure handlers
+</li>
+<li class="">
+There are handlers that provide similar functionality to EAP6 valves
+</li>
+<li class="">
+DSL consists of attribute, predicates and handlers
+</li>
+<li class="">
+Attributes allow you to reference properties of the request or response
+</li>
+<li class="">
+Predicates allow you to make a decision based on the attributes of the request or response
+</li>
+<li class="">
+Handlers allow you to perform an action based on the request or response
+</li>
+<li class="">
+Undertow comes with a large number of built in handlers
+</li>
+<li class="">
+DSL is extensible
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Attributes</h2>
+<ul>
+<li class="">
+Used to specify the values that predicates act on
+</li>
+<li class="">
+Also used in some other places such as access log configuration
+</li>
+</ul>
+<div class="sect2">
+<h3 id="_examples">Examples</h3>
+<ul>
+<li class="">
+<code>%{i,Accept}</code> Incoming header
+</li>
+<li class="">
+<code>%{o,Content-Length}</code> Outgoing header
+</li>
+<li class="">
+<code>%u</code> Remote user that was authenticated
+</li>
+<li class="">
+<code>%U</code> Requested URL path
+</li>
+<li class="">
+And many more (see the docs)
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Predicates</h2>
+<ul>
+<li class="">
+Return true or false based on the value of an attribute
+</li>
+<li class="">
+Generally used to determine if a given handler should be run
+</li>
+</ul>
+<div class="sect2">
+<h3 id="_examples_2">Examples</h3>
+<ul>
+<li class="">
+<code>path</code> Matches an exact path
+</li>
+<li class="">
+<code>path-prefix</code> Matches the start of a path
+</li>
+<li class="">
+<code>path-suffix</code> Matches the end of a path
+</li>
+<li class="">
+<code>contains</code> Tests than an attribute contains a given string
+</li>
+<li class="">
+<code>exists</code> Tests that an attribute is not null
+</li>
+<li class="">
+<code>regex</code> Performs a regex match on an attribute
+</li>
+<li class="">
+<code>equals</code> Tests that two atrributes are equal
+</li>
+<li class="">
+<code>path-template</code> Path template match
+</li>
+<li class="">
+<code>method</code> Matches a specific HTTP method
+</li>
+<li class="">
+<code>auth-required</code> Matches authenticated requests
+</li>
+<li class="">
+<code>secure</code> Returns true if the request marked as secure (i.e. using SSL)
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Example predicates</h2>
+<p>The following predicates all match POST requests:</p>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="n">method</span><span class="o">[</span><span class="n">POST</span><span class="o">]</span>
+<span class="n">method</span><span class="o">[</span><span class="n">value</span><span class="o">=</span><span class="n">POST</span><span class="o">]</span>
+<span class="n">equals</span><span class="o">[{%{</span><span class="n">METHOD</span><span class="o">},</span> <span class="n">POST</span><span class="o">}]</span>
+<span class="n">equals</span><span class="o">[%</span><span class="n">m</span><span class="o">,</span> <span class="s">&quot;POST&quot;</span><span class="o">]</span>
+<span class="n">regex</span><span class="o">[</span><span class="n">pattern</span><span class="o">=</span><span class="s">&quot;POST&quot;</span><span class="o">,</span> <span class="n">value</span><span class="o">=</span><span class="s">&quot;%m&quot;</span><span class="o">,</span> <span class="n">full</span><span class="o">-</span><span class="n">match</span><span class="o">=</span><span class="kc">true</span><span class="o">]</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Example predicates (cont)</h2>
+<p>Predicates can be combined</p>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="n">not</span> <span class="n">method</span><span class="o">[</span><span class="n">POST</span><span class="o">]</span>
+<span class="n">method</span><span class="o">[</span><span class="n">POST</span><span class="o">]</span> <span class="n">and</span> <span class="n">path</span><span class="o">-</span><span class="n">prefix</span><span class="o">[</span><span class="s">&quot;/uploads&quot;</span><span class="o">]</span>
+<span class="n">path</span><span class="o">-</span><span class="n">template</span><span class="o">[</span><span class="n">value</span><span class="o">=</span><span class="s">&quot;/user/{username}/*&quot;</span><span class="o">]</span> <span class="n">and</span> <span class="n">equals</span><span class="o">[%</span><span class="n">u</span><span class="o">,</span> <span class="n">$</span><span class="o">{</span><span class="n">username</span><span class="o">}]</span>
+<span class="n">regex</span><span class="o">[</span><span class="n">pattern</span><span class="o">=</span><span class="s">&quot;/user/(.*?)./.*&quot;</span><span class="o">,</span> <span class="n">value</span><span class="o">=%</span><span class="n">U</span><span class="o">,</span> <span class="n">full</span><span class="o">-</span><span class="n">match</span><span class="o">=</span><span class="kc">true</span><span class="o">]</span> <span class="n">and</span> <span class="n">equals</span><span class="o">[%</span><span class="n">u</span><span class="o">,</span> <span class="n">$</span><span class="o">{</span><span class="mi">1</span><span class="o">}]</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Built in handlers</h2>
+<ul>
+<li class="">
+Handlers perform an action on the request
+</li>
+<li class="">
+The <code>set</code> handler is a general purpose handler that can be used to modify almost any aspect of an exchange
+</li>
+</ul>
+<div class="sect2">
+<h3 id="_examples_3">Examples</h3>
+<ul>
+<li class="">
+<code>rewrite</code> rewrites the request path
+</li>
+<li class="">
+<code>set</code> sets an attribute on the exchange
+</li>
+<li class="">
+<code>redirect</code> performs a redirect
+</li>
+<li class="">
+<code>allowed-methods</code> limits the allowed methods
+</li>
+<li class="">
+<code>disallowed-methods</code> limits the allowed methods
+</li>
+<li class="">
+<code>trace</code> Handles HTTP TRACE requests
+</li>
+<li class="">
+<code>dump-request</code> dumps requests to the log
+</li>
+<li class="">
+<code>response-rate-limit</code> limits the response speed
+</li>
+<li class="">
+<code>ip-access-control</code> provides IP based access control lists
+</li>
+<li class="">
+And more&#8230;
+</li>
+</ul>
+</div>
+</section>
+<section class="slide">
+<h2>Using handlers</h2>
+<ul>
+<li class="">
+Can be used in an <code>expression-filter</code> in the Undertow subsystem
+</li>
+<li class="">
+Can be used in <code>WEB-INF/undertow-handlers.conf</code>
+</li>
+<li class="">
+Most filters in the Undertow subsystem take an optional predicate that determines if the filter should run
+</li>
+</ul>
+</section>
+<section class="slide">
+<h2>Predicated handlers (e.g. undertow-handlers.conf)</h2>
+<ul>
+<li class="">
+General form is <code>predicate -&gt; handler</code>, if no predicate is present handler is applied to every request.
+</li>
+<li class="">
+If multiples handlers are tied to one predicate they can be chained by enclosing them in curly braces
+</li>
+</ul>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="n">set</span><span class="o">[</span><span class="n">attribute</span><span class="o">=%{</span><span class="n">o</span><span class="o">,</span> <span class="n">Content</span><span class="o">-</span><span class="n">Type</span><span class="o">},</span> <span class="n">value</span><span class="o">=</span><span class="err">&#39;</span><span class="n">application</span><span class="o">/</span><span class="n">json</span><span class="err">&#39;</span><span class="o">]</span>
+<span class="n">path</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">a</span><span class="err">&#39;</span><span class="o">]</span> <span class="o">-&gt;</span> <span class="n">redirect</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">b</span><span class="err">&#39;</span><span class="o">]</span>
+<span class="n">path</span><span class="o">-</span><span class="n">prefix</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">a</span><span class="err">&#39;</span><span class="o">]</span> <span class="o">-&gt;</span> <span class="n">redirect</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">b$</span><span class="o">{</span><span class="n">remaining</span><span class="o">}</span><span class="err">&#39;</span><span class="o">]</span>
+<span class="n">regex</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">a</span><span class="o">(.*)</span><span class="err">&#39;</span><span class="o">]</span> <span class="o">-&gt;</span> <span class="o">{</span> <span class="n">set</span><span class="o">[</span><span class="n">attribute</span><span class="o">=</span><span class="err">&#39;</span><span class="o">%{</span><span class="n">o</span><span class="o">,</span><span class="n">Location</span><span class="o">}</span><span class="err">&#39;</span><span class="o">,</span> <span class="n">value</span><span class="o">=</span><span class="err">&#39;</span><span class="o">/</span><span class="n">b$</span><span class="o">{</span><span class="mi">1</span><span class="o">}</span><span class="err">&#39;</span><span class="o">];</span> <span class="n">response</span><span class="o">-</span><span class="n">code</span><span class="o">[</span><span class="mi">302</span><span class="o">]</span> <span class="o">}</span>
+</pre></div></div></div>
 </section>
 <section class="slide">
 <h2>HTTP Upgrade</h2>
@@ -2832,16 +3063,13 @@ Removes need to configure multiple ports
 <h2>Why is this important?</h2>
 <ul>
 <li class="">
-This allowed us to reduce the number of ports in the default Wildfly installation to 2
+This allowed us to reduce the number of ports in the default EAP7 installation to 2
 </li>
 <li class="">
-EJB and JNDI are multiplexed over the undertow subsystem port 8080
+EJB, JMS and JNDI are multiplexed over the undertow subsystem port 8080
 </li>
 <li class="">
 Management is multiplexed over the web management port 9990
-</li>
-<li class="">
-At some point we may offer a single port mode, to allow all server traffic to go through a single port
 </li>
 <li class="">
 This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
@@ -2872,201 +3100,6 @@ Upgrade: jboss-remoting
 Connection: Upgrade</tt></pre>
 </div></div>
 </div>
-</section>
-<section class="slide">
-<h2>Attributes, Predicates and Handlers</h2>
-<ul>
-<li class="">
-Undertow provides a built in DSL to configure handlers
-</li>
-<li class="">
-There are handlers that provide similar functionality to EAP6 valves
-</li>
-<li class="">
-DSL consists of attribute, predicates and handlers
-</li>
-<li class="">
-Attributes allow you to reference properties of the request or response
-</li>
-<li class="">
-Predicates allow you to make a decision based on the attributes of the request or response
-</li>
-<li class="">
-Handlers allow you to perform an action based on the request or response
-</li>
-<li class="">
-Undertow comes with a large number of built in handlers
-</li>
-<li class="">
-DSL is extensible
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>Attributes</h2>
-<ul>
-<li class="">
-Used to specify the values that predicates act on
-</li>
-<li class="">
-Also used in some other places such as access log configuration
-=== Examples
-</li>
-<li class="">
-<code>%{i,Accept}</code> Incoming header
-</li>
-<li class="">
-<code>%{o,Content-Length}</code> Outgoing header
-</li>
-<li class="">
-<code>%u</code> Remote user that was authenticated
-</li>
-<li class="">
-<code>%U</code> Requested URL path
-</li>
-<li class="">
-And many more (see the docs)
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>Predicates</h2>
-<ul>
-<li class="">
-Return true or false based on the value of an attribute
-</li>
-<li class="">
-Generally used to determine if a given handler should be run
-=== Examples
-</li>
-<li class="">
-<code>path</code> Matches an exact path
-</li>
-<li class="">
-<code>path-prefix</code> Matches the start of a path
-</li>
-<li class="">
-<code>path-suffix</code> Matches the end of a path
-</li>
-<li class="">
-<code>contains</code> Tests than an attribute contains a given string
-</li>
-<li class="">
-<code>exists</code> Tests that an attribute is not null
-</li>
-<li class="">
-<code>regex</code> Performs a regex match on an attribute
-</li>
-<li class="">
-<code>equals</code> Tests that two atrributes are equal
-</li>
-<li class="">
-<code>path-template</code> Path template match
-</li>
-<li class="">
-<code>method</code> Matches a specific HTTP method
-</li>
-<li class="">
-<code>auth-required</code> Matches authenticated requests
-</li>
-<li class="">
-<code>secure</code> Returns true if the request marked as secure (i.e. using SSL)
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>Example predicates</h2>
-<p>The following predicates all match POST requests:</p>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="n">method</span><span class="o">[</span><span class="n">POST</span><span class="o">]</span>
-<span class="n">method</span><span class="o">[</span><span class="n">value</span><span class="o">=</span><span class="n">POST</span><span class="o">]</span>
-<span class="n">equals</span><span class="o">[{%{</span><span class="n">METHOD</span><span class="o">},</span> <span class="n">POST</span><span class="o">}]</span>
-<span class="n">equals</span><span class="o">[%</span><span class="n">m</span><span class="o">,</span> <span class="s">&quot;POST&quot;</span><span class="o">]</span>
-<span class="n">regex</span><span class="o">[</span><span class="n">pattern</span><span class="o">=</span><span class="s">&quot;POST&quot;</span><span class="o">,</span> <span class="n">value</span><span class="o">=</span><span class="s">&quot;%m&quot;</span><span class="o">,</span> <span class="n">full</span><span class="o">-</span><span class="n">match</span><span class="o">=</span><span class="kc">true</span><span class="o">]</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Example predicates (cont)</h2>
-<p>Predicates can be combined</p>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="n">not</span> <span class="n">method</span><span class="o">[</span><span class="n">POST</span><span class="o">]</span>
-<span class="n">method</span><span class="o">[</span><span class="n">POST</span><span class="o">]</span> <span class="n">and</span> <span class="n">path</span><span class="o">-</span><span class="n">prefix</span><span class="o">[</span><span class="s">&quot;/uploads&quot;</span><span class="o">]</span>
-<span class="n">path</span><span class="o">-</span><span class="n">template</span><span class="o">[</span><span class="n">value</span><span class="o">=</span><span class="s">&quot;/user/{username}/*&quot;</span><span class="o">]</span> <span class="n">and</span> <span class="n">equals</span><span class="o">[%</span><span class="n">u</span><span class="o">,</span> <span class="n">$</span><span class="o">{</span><span class="n">username</span><span class="o">}]</span>
-<span class="n">regex</span><span class="o">[</span><span class="n">pattern</span><span class="o">=</span><span class="s">&quot;/user/(.*?)./.*&quot;</span><span class="o">,</span> <span class="n">value</span><span class="o">=%</span><span class="n">U</span><span class="o">,</span> <span class="n">full</span><span class="o">-</span><span class="n">match</span><span class="o">=</span><span class="kc">true</span><span class="o">]</span> <span class="n">and</span> <span class="n">equals</span><span class="o">[%</span><span class="n">u</span><span class="o">,</span> <span class="n">$</span><span class="o">{</span><span class="mi">1</span><span class="o">}]</span>
-</pre></div></div></div>
-</section>
-<section class="slide">
-<h2>Built in handlers</h2>
-<ul>
-<li class="">
-Handlers perform an action on the request
-</li>
-<li class="">
-The <code>set</code> handler is a general purpose handler that can be used to modify almost any aspect of an exchange
-=== Examples
-</li>
-<li class="">
-<code>rewrite</code> rewrites the request path
-</li>
-<li class="">
-<code>set</code> sets an attribute on the exchange
-</li>
-<li class="">
-<code>redirect</code> performs a redirect
-</li>
-<li class="">
-<code>allowed-methods</code> limits the allowed methods
-</li>
-<li class="">
-<code>disallowed-methods</code> limits the allowed methods
-</li>
-<li class="">
-<code>trace</code> Handles HTTP TRACE requests
-</li>
-<li class="">
-<code>dump-request</code> dumps requests to the log
-</li>
-<li class="">
-<code>response-rate-limit</code> limits the response speed
-</li>
-<li class="">
-<code>ip-access-control</code> provides IP based access control lists
-</li>
-<li class="">
-And more&#8230;
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>Using handlers</h2>
-<ul>
-<li class="">
-Can be used in an <code>expression-filter</code> in the Undertow subsystem
-</li>
-<li class="">
-Can be used in <code>WEB-INF/undertow-handlers.conf</code>
-</li>
-<li class="">
-Most filters in the Undertow subsystem take an optional predicate that determines if the filter should run
-</li>
-</ul>
-</section>
-<section class="slide">
-<h2>Predicated handlers (e.g. undertow-handlers.conf)</h2>
-<ul>
-<li class="">
-General form is <code>predicate -&gt; handler</code>, if no predicate is present handler is applied to every request.
-</li>
-<li class="">
-If multiples handlers are tied to one predicate they can be chained by enclosing them in curly braces
-</li>
-</ul>
-<div class="listingblock">
-<div class="content"><div class="highlight"><pre><span class="n">set</span><span class="o">[</span><span class="n">attribute</span><span class="o">=%{</span><span class="n">o</span><span class="o">,</span> <span class="n">Content</span><span class="o">-</span><span class="n">Type</span><span class="o">},</span> <span class="n">value</span><span class="o">=</span><span class="err">&#39;</span><span class="n">application</span><span class="o">/</span><span class="n">json</span><span class="err">&#39;</span><span class="o">]</span>
-<span class="n">path</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">a</span><span class="err">&#39;</span><span class="o">]</span> <span class="o">-&gt;</span> <span class="n">redirect</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">b</span><span class="err">&#39;</span><span class="o">]</span>
-<span class="n">path</span><span class="o">-</span><span class="n">prefix</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">a</span><span class="err">&#39;</span><span class="o">]</span> <span class="o">-&gt;</span> <span class="n">redirect</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">b$</span><span class="o">{</span><span class="n">remaining</span><span class="o">}</span><span class="err">&#39;</span><span class="o">]</span>
-<span class="n">regex</span><span class="o">[</span><span class="err">&#39;</span><span class="o">/</span><span class="n">a</span><span class="o">(.*)</span><span class="err">&#39;</span><span class="o">]</span> <span class="o">-&gt;</span> <span class="o">{</span> <span class="n">set</span><span class="o">[</span><span class="n">attribute</span><span class="o">=</span><span class="err">&#39;</span><span class="o">%{</span><span class="n">o</span><span class="o">,</span><span class="n">Location</span><span class="o">}</span><span class="err">&#39;</span><span class="o">,</span> <span class="n">value</span><span class="o">=</span><span class="err">&#39;</span><span class="o">/</span><span class="n">b$</span><span class="o">{</span><span class="mi">1</span><span class="o">}</span><span class="err">&#39;</span><span class="o">];</span> <span class="n">response</span><span class="o">-</span><span class="n">code</span><span class="o">[</span><span class="mi">302</span><span class="o">]</span> <span class="o">}</span>
-</pre></div></div></div>
 </section>
 <section class="slide">
 <h2>Reverse Proxy</h2>
@@ -3460,6 +3493,42 @@ Because of this frameworks such as Atmosphere that use JSR-356 work out of the b
 Undertow supports version 1.1 of JSR-356, and websockets are enabled by default
 </li>
 </ul>
+</section>
+<section class="slide">
+<h2>Annotated Server Endpoint Example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nd">@ServerEndpoint</span><span class="o">(</span><span class="s">&quot;/websocket/{name}&quot;</span><span class="o">)</span> <span class="c1">//note the URL template.</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloEndpoint</span> <span class="o">{</span>
+
+    <span class="nd">@OnOpen</span> <span class="c1">//invoked when the client first connects</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onOpen</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">session</span><span class="o">.</span><span class="na">getAsyncRemote</span><span class="o">().</span><span class="na">sendText</span><span class="o">(</span><span class="s">&quot;hi&quot;</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@OnMessage</span> <span class="c1">//handles text messages</span>
+    <span class="kd">public</span> <span class="n">String</span> <span class="nf">message</span><span class="o">(</span><span class="n">String</span> <span class="n">message</span><span class="o">,</span> <span class="nd">@PathParam</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">)</span> <span class="n">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="s">&quot;Hello &quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s">&quot; you sent&quot;</span> <span class="o">+</span> <span class="n">message</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></div></div></div>
+</section>
+<section class="slide">
+<h2>Another Annotated Server Endpoint Example</h2>
+<div class="listingblock">
+<div class="content"><div class="highlight"><pre><span class="nd">@ServerEndpoint</span><span class="o">(</span><span class="s">&quot;/websocket/{name}&quot;</span><span class="o">)</span> <span class="c1">//note the URL template.</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloEndpoint</span> <span class="o">{</span>
+
+    <span class="nd">@OnMessage</span> <span class="c1">//handles binary messages</span>
+    <span class="kd">public</span> <span class="kt">byte</span><span class="o">[]</span> <span class="nf">binaryMessage</span><span class="o">(</span><span class="kt">byte</span><span class="o">[]</span> <span class="n">binaryMessage</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">binaryMessage</span><span class="o">;</span> <span class="c1">//echo binary data</span>
+    <span class="o">}</span>
+
+    <span class="nd">@OnClose</span> <span class="c1">//invoked when the connection is closed</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onClose</span><span class="o">(</span><span class="kd">final</span> <span class="n">Session</span> <span class="n">session</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Connection closed&quot;</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></div></div></div>
 </section>
 <section class="slide">
 <h2>Links</h2>

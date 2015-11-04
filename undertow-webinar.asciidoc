@@ -95,6 +95,31 @@ public interface HttpHandler {
 }
 ----
 
+== HttpHandler example
+[source,java]
+----
+
+public class SetHeaderHandler implements HttpHandler {
+
+    private final HttpString header;
+    private final String value;
+    private final HttpHandler next;
+
+    public SetHeaderHandler(HttpHandler next, final String header, final String value) {
+        this.next = next;
+        this.value = value
+        this.header = new HttpString(header);
+    }
+
+    @Override
+    public void handleRequest(final HttpServerExchange exchange) throws Exception {
+        exchange.getResponseHeaders().put(header, value);
+        next.handleRequest(exchange);
+    }
+}
+
+----
+
 == Blocking and Non Blocking IO
  * Undertow connectors always use non-blocking IO
  * Initially handlers are run in an IO thread, they cannot perform blocking actions
@@ -191,6 +216,7 @@ image::architecture.svg["Diagram", height=60]
 <filters>
     <response-header name="server-header" header-name="Server" header-value="WildFly/10"/>
     <response-header name="x-powered-by-header" header-name="X-Powered-By" header-value="Undertow/1"/>
+    <expression-filter name="myfilter" expression="method[POST] -> header[name=my-header, value=my-value]" />
 </filters>
 ----
 
@@ -214,55 +240,11 @@ image::architecture.svg["Diagram", height=60]
 </server>
 ----
 
-* Listeners are equivalent to EAP6 connectors, http, https and AJP are supported
-* HTTP/2 is provided by setting `enable-http2` on the http or https listener
+* Listeners are equivalent to EAP6 connectors, HTTP, HTTPS and AJP are supported
+* HTTP/2 is provided by setting `enable-http2` on the HTTP or HTTPS listener
 * The host element provides virtual host config
 * Multiple servers can be configured which allow deployments and servers to be completely isolated, may be useful in muti-tenant environments
 
-
-== HTTP Upgrade
-
-=== What is it
-
- * HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
- * Standard mechanism defined in the HTTP/1.1 RFC, most common use is to initiate a websocket connection
- * A HTTP client sends a request with the `Upgrade:` header to initiate the connection.
- * If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to whatever handles the upgraded protocol
-
-=== Why use it?
-
- * It allows you to multiplex multiple protocols over the HTTP port
- * Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
- * Removes need to configure multiple ports
-
-== Why is this important?
-
- * This allowed us to reduce the number of ports in the default Wildfly installation to 2
- * EJB and JNDI are multiplexed over the undertow subsystem port 8080
- * Management is multiplexed over the web management port 9990
- * At some point we may offer a single port mode, to allow all server traffic to go through a single port
- * This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
- * The only performance overhead is the initial HTTP request, otherwise it performs identically
-
-
-== HTTP Upgrade - Wildfly EJB example
-
-=== Client Request
-
-----
-GET / HTTP/1.1
-Host: example.com
-Upgrade: jboss-remoting
-Connection: Upgrade
-----
-
-=== Server Response
-
-----
-HTTP/1.1 101 Switching Protocols
-Upgrade: jboss-remoting
-Connection: Upgrade
-----
 
 == Attributes, Predicates and Handlers
  * Undertow provides a built in DSL to configure handlers
@@ -277,7 +259,9 @@ Connection: Upgrade
 == Attributes
  * Used to specify the values that predicates act on
  * Also used in some other places such as access log configuration
+
 === Examples
+
  * `%{i,Accept}` Incoming header
  * `%{o,Content-Length}` Outgoing header
  * `%u` Remote user that was authenticated
@@ -287,7 +271,9 @@ Connection: Upgrade
 == Predicates
  * Return true or false based on the value of an attribute
  * Generally used to determine if a given handler should be run
+
 === Examples
+
  * `path` Matches an exact path
  * `path-prefix` Matches the start of a path
  * `path-suffix` Matches the end of a path
@@ -330,7 +316,9 @@ regex[pattern="/user/(.*?)./.*", value=%U, full-match=true] and equals[%u, ${1}]
 == Built in handlers
  * Handlers perform an action on the request
  * The `set` handler is a general purpose handler that can be used to modify almost any aspect of an exchange
+
 === Examples
+
  * `rewrite` rewrites the request path
  * `set` sets an attribute on the exchange
  * `redirect` performs a redirect
@@ -358,6 +346,48 @@ set[attribute=%{o, Content-Type}, value='application/json']
 path['/a'] -> redirect['/b']
 path-prefix['/a'] -> redirect['/b${remaining}']
 regex['/a(.*)'] -> { set[attribute='%{o,Location}', value='/b${1}']; response-code[302] }
+----
+
+== HTTP Upgrade
+
+=== What is it
+
+ * HTTP Upgrade allows for a HTTP connection to be upgraded to another protocol.
+ * Standard mechanism defined in the HTTP/1.1 RFC, most common use is to initiate a websocket connection
+ * A HTTP client sends a request with the `Upgrade:` header to initiate the connection.
+ * If the server accepts the upgrade it sends back a HTTP 101 response and hands off the socket to whatever handles the upgraded protocol
+
+=== Why use it?
+
+ * It allows you to multiplex multiple protocols over the HTTP port
+ * Makes firewall configuration simpler, and works around firewalls that block port other than 80 and 443
+ * Removes need to configure multiple ports
+
+== Why is this important?
+
+ * This allowed us to reduce the number of ports in the default EAP7 installation to 2
+ * EJB, JMS and JNDI are multiplexed over the undertow subsystem port 8080
+ * Management is multiplexed over the web management port 9990
+ * This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
+ * The only performance overhead is the initial HTTP request, otherwise it performs identically
+
+== HTTP Upgrade - Wildfly EJB example
+
+=== Client Request
+
+----
+GET / HTTP/1.1
+Host: example.com
+Upgrade: jboss-remoting
+Connection: Upgrade
+----
+
+=== Server Response
+
+----
+HTTP/1.1 101 Switching Protocols
+Upgrade: jboss-remoting
+Connection: Upgrade
 ----
 
 
@@ -599,6 +629,44 @@ $undertow
  * Provides support for the standard Java Web Socket API (JSR-356, a required part of EE7)
  * Because of this frameworks such as Atmosphere that use JSR-356 work out of the box
  * Undertow supports version 1.1 of JSR-356, and websockets are enabled by default
+
+== Annotated Server Endpoint Example
+
+[source,java]
+----
+@ServerEndpoint("/websocket/{name}") //note the URL template.
+public class HelloEndpoint {
+
+    @OnOpen //invoked when the client first connects
+    public void onOpen(final Session session) {
+        session.getAsyncRemote().sendText("hi");
+    }
+
+    @OnMessage //handles text messages
+    public String message(String message, @PathParam("name") String name) {
+        return "Hello " + name + " you sent" + message;
+    }
+}
+----
+
+== Another Annotated Server Endpoint Example
+
+[source,java]
+----
+@ServerEndpoint("/websocket/{name}") //note the URL template.
+public class HelloEndpoint {
+
+    @OnMessage //handles binary messages
+    public byte[] binaryMessage(byte[] binaryMessage) {
+        return binaryMessage; //echo binary data
+    }
+
+    @OnClose //invoked when the connection is closed
+    public void onClose(final Session session) {
+        System.out.println("Connection closed");
+    }
+}
+----
 
 == Links
  * http://wildscribe.github.io/
