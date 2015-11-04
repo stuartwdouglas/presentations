@@ -194,8 +194,7 @@ public void handleDeployment(final DeploymentInfo d, final ServletContextImpl s)
  * Undertow has the ability to act as a high performance reverse proxy
  * Handles both AJP and HTTP backends
  * Supports round robin load balancing
- * Support for mod_cluster is planned
- * Still under heavy development
+ * Supports mod_cluster
 
 == Setting up the reverse proxy
 
@@ -474,7 +473,7 @@ protected void doGet(final HttpServletRequest req, final HttpServletResponse res
  * We are still responsible for checking for the `Upgrade` header, and setting and appropriate response headers
  * Once the request is finished the resulting `HttpUpgradeHandler` will take over the connection, and can send and receive
   data via the provided `WebConnection` and its associated streams.
- * Upgraded connection can use the async IO capabilites of `ServletInputStream` and `ServletOutputStream`
+ * Upgraded connection can use the async IO capabilities of `ServletInputStream` and `ServletOutputStream`
 
 == The Servlet Upgrade API (cont)
 [source,java]
