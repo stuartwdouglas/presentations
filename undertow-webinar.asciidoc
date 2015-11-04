@@ -49,9 +49,8 @@ Undertow
  * Servlet Extensions
  * Web Sockets
  * Undertow handlers and predicates
- * Undertow.js
- * Migration from EAP 6 - Supported/Unsupported Valves
  * Undertow as a load balancer
+ * Undertow.js
  * HTTP/2
 
 
@@ -66,17 +65,12 @@ Undertow
  * Contains a high performance reverse proxy implementation
 
 == Architecture
- * An undertow server consists of one or more connectors and multiple HttpHandler
+ * An undertow server consists of one or more connectors and one or more `HttpHandler` instances
  * Requests come in through a connector
  * Once a request has been fully read a +HttpServerExchange+ object is constructed, this object represents both the request and response
- * The +HttpServerExchange+ is then passed to the first HttpHandler
+ * The +HttpServerExchange+ is then passed to the first `HttpHandler`
  * The +HttpHandler+ can then do work on the exchange, or delegate to another handler
  * Undertow provides a large number of pre existing handlers, including handlers that provide a Servlet implementation
-
-
-== Undertow Flow Diagram
-
-image::architecture.svg["Diagram", height=60]
 
 == The Server
 
@@ -91,11 +85,27 @@ image::architecture.svg["Diagram", height=60]
  * Can have arbitrary data attached to it via the use of attachments
  * Can read/write request/response via blocking or non-blocking IO
 
+== The HttpHandler interface
+
+[source,java]
+----
+public interface HttpHandler {
+    void handleRequest(HttpServerExchange exchange) throws Exception;
+}
+----
+
 == Blocking and Non Blocking IO
  * Undertow connectors always use non-blocking IO
  * Initially handlers are run in an IO thread, they cannot perform blocking actions
  * An exchange can be dispatched to an executor in order to allow it to perform blocking tasks
  * By default an exchange will use non-blocking IO
+
+== Undertow Flow Diagram
+
+image::architecture.svg["Diagram", height=60]
+
+
+
 
 == HTTP Upgrade
 
@@ -114,11 +124,10 @@ image::architecture.svg["Diagram", height=60]
 
 == Why is this important?
 
- * This allowed us to reduce the number of ports in the default Wildfly installation to 3
- * This will be down to 2 by the time Wildfly goes final
+ * This allowed us to reduce the number of ports in the default Wildfly installation to 2
  * EJB and JNDI are multiplexed over the undertow subsystem port 8080
  * Management is multiplexed over the web management port 9990
- * At some point we will offer a single port mode, to allow all server traffic to go through a single port
+ * At some point we may offer a single port mode, to allow all server traffic to go through a single port
  * This is very important for cloud scenarios such as OpenShift, where a single physical host can handle hundreds of instances
  * The only performance overhead is the initial HTTP request, otherwise it performs identically
 
@@ -142,10 +151,35 @@ Upgrade: jboss-remoting
 Connection: Upgrade
 ----
 
+== Servlet 3.1
+
+ * Undertow provides a fully compliant Servlet 3.1 container
+
+=== Notable Changes
+ * Async IO Support
+ * HTTP Upgrade Support
+
+== Async IO
+
+ * Servlet 3.1 now provides support for non-blocking IO
+
+=== Traditional IO
+
+ * Uses a thread per connection model
+ * Reads and writes are blocking, the operation will not return until the operation is complete
+ * A large number of connection directly translates to a large number of threads
+
+=== Non-blocking IO
+
+ * Read and write operation are non-blocking, instead a callback mechanism is used to let you know when the operation is complete
+ * A single thread can handle a large number of connections
+ * Programmers must be careful not to perform blocking operations within the IO thread
+ * Non-blocking code is generally more complex to write than blocking code
+
 == Servlet 3.1 Async IO
 
 === Performing an async write
- * Call ServletRequest.startAsync() to put the request into async mode
+ * Call `ServletRequest.startAsync()` to put the request into async mode
  * Call `ServletOutputStream.setWriteListener(WriteListener writeListener)` to put the stream into async mode
  * The write listener will be invoked after the current request has returned to the container
  * You *must* call `ServletOutputStream.isReady()` before calling `write()`
@@ -231,7 +265,7 @@ public interface WebConnection extends AutoCloseable {
  * Undertow provides the ability to customise a deployment via the `io.undertow.servlet.ServletExtension` interface
  * Similar to a `ServletContainerInitializer` but more flexible, as any part of the deployment can be changed
  * Allows you to use native Undertow handlers in a servlet deployment, without incurring any servlet overhead
- * Gives you access to the DeploymentInfo structure, so you have access to the same API that was used to build the deployment
+ * Gives you access to the `DeploymentInfo` structure, so you have access to the same API that Wildfly used to build the deployment
 
 [source,java]
 ----
@@ -254,6 +288,201 @@ public void handleDeployment(final DeploymentInfo d, final ServletContextImpl s)
 }
 ----
 
+
+
+== Attributes, Predicates and Handlers
+ * Undertow provides a built in DSL to configure handlers
+ * There are handlers that provide similar functionality to EAP6 valves
+ * DSL consists of attribute, predicates and handlers
+ * Attributes allow you to reference properties of the request or response
+ * Predicates allow you to make a decision based on the attributes of the request or response
+ * Handlers allow you to perform an action based on the request or response
+ * Undertow comes with a large number of built in handlers
+ * DSL is extensible
+
+== Attributes
+ * Used to specify the values that predicates act on
+ * Also used in some other places such as access log configuration
+=== Examples
+ * `%{i,Accept}` Incoming header
+ * `%{o,Content-Length}` Outgoing header
+ * `%u` Remote user that was authenticated
+ * `%U` Requested URL path
+ * And many more (see the docs)
+
+== Predicates
+ * Return true or false based on the value of an attribute
+ * Generally used to determine if a given handler should be run
+=== Examples
+ * `path` Matches an exact path
+ * `path-prefix` Matches the start of a path
+ * `path-suffix` Matches the end of a path
+ * `contains` Tests than an attribute contains a given string
+ * `exists` Tests that an attribute is not null
+ * `regex` Performs a regex match on an attribute
+ * `equals` Tests that two atrributes are equal
+ * `path-template` Path template match
+ * `method` Matches a specific HTTP method
+ * `auth-required` Matches authenticated requests
+ * `secure` Returns true if the request marked as secure (i.e. using SSL)
+
+
+== Example predicates
+
+The following predicates all match POST requests:
+
+[source,java]
+----
+method[POST]
+method[value=POST]
+equals[{%{METHOD}, POST}]
+equals[%m, "POST"]
+regex[pattern="POST", value="%m", full-match=true]
+----
+
+== Example predicates (cont)
+
+Predicates can be combined
+
+[source,java]
+----
+not method[POST]
+method[POST] and path-prefix["/uploads"]
+path-template[value="/user/{username}/*"] and equals[%u, ${username}]
+regex[pattern="/user/(.*?)./.*", value=%U, full-match=true] and equals[%u, ${1}]
+----
+
+
+== Built in handlers
+ * Handlers perform an action on the request
+ * The `set` handler is a general purpose handler that can be used to modify almost any aspect of an exchange
+=== Examples
+ * `rewrite` rewrites the request path
+ * `set` sets an attribute on the exchange
+ * `redirect` performs a redirect
+ * `allowed-methods` limits the allowed methods
+ * `disallowed-methods` limits the allowed methods
+ * `trace` Handles HTTP TRACE requests
+ * `dump-request` dumps requests to the log
+ * `response-rate-limit` limits the response speed
+ * `ip-access-control` provides IP based access control lists
+ * And more...
+
+== Using handlers
+ * Can be used in an `expression-filter` in the Undertow subsystem
+ * Can be used in `WEB-INF/undertow-handlers.conf`
+ * Most filters in the Undertow subsystem take an optional predicate that determines if the filter should run
+
+== Predicated handlers (e.g. undertow-handlers.conf)
+
+* General form is `predicate -> handler`, if no predicate is present handler is applied to every request.
+* If multiples handlers are tied to one predicate they can be chained by enclosing them in curly braces
+
+[source,java]
+----
+set[attribute=%{o, Content-Type}, value='application/json']
+path['/a'] -> redirect['/b']
+path-prefix['/a'] -> redirect['/b${remaining}']
+regex['/a(.*)'] -> { set[attribute='%{o,Location}', value='/b${1}']; response-code[302] }
+----
+
+
+== Reverse Proxy
+
+ * Undertow has the ability to act as a high performance reverse proxy
+ * Handles  AJP, HTTP and HTTP/2 backends
+ * Supports mod_cluster
+ * Configuration different for static proxy and mod_cluster based proxy
+
+== Configuring the static reverse proxy
+
+ * The proxy is configured with a static host list
+ * Can then be added to locations under a virtual host
+ * All requests to this location are forwarded
+
+[source,java]
+----
+/socket-binding-group=standard-sockets/remote-destination-outbound-socket-binding=proxy:add(source-interface=public, host=localhost, port=1111)
+/subsystem=undertow/configuration=handler/reverse-proxy=myproxy:add()
+/subsystem=undertow/configuration=handler/reverse-proxy=myproxy/host=http\:\/\/myhost\:8080:add(outbound-socket-binding=proxy)
+/subsystem=undertow/server=default-server/host=default-host/location=\/context:add(handler=myproxy)
+----
+
+== mod_cluster support
+ * The mod_cluster implementation is based on the C version, ported to Java and modified to be based on Undertow
+ * Functionality and operation should be basically similar
+ * The management page no longer exists, instead it is monitored and managed via the management API (e.g. CLI)
+
+=== Configuring a mod_cluster reverse proxy
+ * The mod_cluster proxy handler acts as a filter
+ * It will only act if it has a node registered that can handle the requests context and host
+ * Otherwise the request will be passed to the local server to be handled
+
+=== Online resources
+ * http://blog.eisele.net/2015/01/developer-interview-di-11-stuart-douglas-about-wildfly9-undertow.html
+ * https://github.com/stuartwdouglas/modcluster-example
+
+== Configuring a mod_cluster reverse proxy
+
+[source,java]
+----
+/socket-binding-group=standard-sockets/socket-binding=modcluster:add(port=23364, multicast-address=224.0.1.105)
+/subsystem=undertow/configuration=filter/mod-cluster=modcluster:add(management-socket-binding=http, advertise-socket-binding=modcluster)
+/subsystem=undertow/server=default-server/host=default-host/filter-ref=modcluster:add
+----
+
+=== Runtime monitoring and Management
+* Runtime resources (nodes, contexts etc) can be managed under the mod-cluster resource
+* This includes all management operations that would have previously been done under the mod_cluster management page
+* http://wildscribe.github.io/Wildfly/9.0.0.CR2/subsystem/undertow/configuration/filter/mod-cluster/index.html
+
+
+== Undertow.js
+ * Undertow.js allows you to use JavaScript to write HTTP and REST endpoints
+ * Allows you to inject Java EE resources into your JavaScript handlers
+ * Provides JavaScript wrappers for some Java EE objects (such as datasources)
+ * Supports pluggable template engines
+ * Supports declarative security
+ * Supports websockets
+ * Will be tech preview for EE7
+ * For full details see http://wildfly.org/news/2015/08/10/Javascript-Support-In-Wildfly/
+ * Also covered in the Undertow docs
+
+== Template Example
+
+[source,javascript]
+----
+$undertow
+    .onGet("/hello",
+        {template: 'hello.txt', headers: {"content-type": "text/plain"}},
+        [function ($exchange) {
+            return {name: 'Stuart'};
+        }]);
+----
+
+(hello.txt is a mustache template file)
+
+== JSON Example
+
+[source,javascript]
+----
+$undertow
+    .alias('db', 'jndi:java:jboss/datasources/ExampleDS')
+    .onGet("/rest/members",
+        {transactional: true, {roles_allowed: ["admin", "user"]}, headers: {"content-type": "application/json"}},
+        ['db', function ($exchange, db) {
+            return db.select("select * from members");
+        }]);
+----
+
+== HTTP/2
+
+ * Will be tech preview in EAP7
+ * Java 8 has no supported way of doing ALPN version negotiation that is required for HTTP/2
+ * Requires an ALPN jar on the boot class path, specific to the version of the JVM in use
+ * ALPN is planned for Java 9
+ * Plans for OpenSSL bindings for EAP 7.1
+ * h2c (non-SSL HTTP/2) can still be used, but it is not supported by major browsers, the main use case from an EAP7 point of view is as a replacement for AJP
 
 == Websockets
 
@@ -350,141 +579,4 @@ public class AnnotatedClientEndpoint {
 ServerContainer sc = servletContext.getAttribute("javax.websocket.server.ServerContainer");
 Session session = sc.connectToServer(AnnotatedClientEndpoint.class, new URI("ws://example.com/chat/Stuart"));
 Future<Void> future = session.getAsyncRemote().sendText("Hello Websocket");
-----
-
-
-== Attributes, Predicates and Handlers
- * Undertow provides a built in DSL to configure handlers
- * Handlers are comparable to EAP6 valves
- * Consists of attribute, predicates and handlers
- * Attributes allow you to reference properties of the request or response
- * Predicates allow you to make a decision based on the attributes of the request or response
- * Handlers allow you to perform an action based on the request or response
- * Undertow comes with a large number of built in handlers
-
-== Attributes
- * `%{i,Accept}` Incoming header
- * `%{o,Content-Length}` Outgoing header
- * `%u` Remote user that was authenticated
- * `%U` Requested URL path
- * And many more (see the docs)
-
-== Predicates
- * `path` Matches an exact path
- * `path-prefix` Matches the start of a path
- * `path-suffix` Matches the end of a path
- * `contains` Tests than an attribute contains a given string
- * `exists` Tests that an attribute is not null
- * `regex` Performs a regex match on an attribute
- * `equals` Tests that two atrributes are equal
- * `path-template` Path template match
- * `method` Matches a specific HTTP method
- * `auth-required` Matches authenticated requests
- * `secure` Returns true if the request marked as secure (i.e. using SSL)
-
-== Built in handlers
- * `rewrite` rewrites the request path
- * `set` sets an attribute on the exchange
- * `redirect` performs a redirect
- * `allowed-methods` limits the allowed methods
- * `disallowed-methods` limits the allowed methods
- * `trace` Handles HTTP TRACE requests
- * `dump-request` dumps requests to the log
- * `response-rate-limit` limits the response speed
- * `ip-access-control` provides IP based access control lists
- * And more...
-
-== Using handlers
- * Can be used in an `expression-filter` in the Undertow subsystem
- * Can be used in undertow-handlers.conf
- * Most filters in the Undertow subsystem take an optional predicate that determines if the filter should run
-
-== Example predicates
-
- The following predicates all match POST requests:
-
-[source,java]
-----
-method[POST]
-method[value=POST]
-equals[{%{METHOD}, POST}]
-equals[%m, "POST"]
-regex[pattern="POST", value="%m", full-match=true]
-----
-
-== Example predicates (cont)
-
-Predicates can be combined
-
-[source,java]
-----
-not method[POST]
-method[POST] and path-prefix["/uploads"]
-path-template[value="/user/{username}/*"] and equals[%u, ${username}]
-regex[pattern="/user/(.*?)./.*", value=%U, full-match=true] and equals[%u, ${1}]
-----
-
-== Predicated handlers (e.g. undertow-handlers.conf)
-
-General form is `predicate -> handler`, if no predicate is present handler is applied to every request.
-
-[source,java]
-----
-set[attribute=%{o, Content-Type}, value='application/json']
-path['/a'] -> redirect['/b']
-path-prefix['/a'] -> redirect['/b${remaining}']
-regex['/a(.*)'] -> { set[attribute='%{o,Location}', value='/b${1}']; response-code[302] }
-----
-
-== HTTP/2
-
- * Will be tech preview in EAP7
- * Java 8 has no supported way of doing ALPN version negotiation that is required for HTTP/2
- * Requires an ALPN jar on the boot class path, specific to the version of the JVM in use
- * ALPN is planned for Java 9
- * Plans for OpenSSL bindings for EAP 7.1
-
-== Reverse Proxy
-
- * Undertow has the ability to act as a high performance reverse proxy
- * Handles both AJP and HTTP backends
- * Supports round robin load balancing
- * Supports mod_cluster
-
-== Undertow.js
- * Undertow.js allows you to use JavaScript to write HTTP and REST endpoints
- * Allows you to inject Java EE resources into your JavaScript handlers
- * Provides JavaScript wrappers for some Java EE objects (such as datasources)
- * Supports pluggable template engines
- * Supports declarative security
- * Supports websockets
- * Will be tech preview for EE7
- * For full details see http://wildfly.org/news/2015/08/10/Javascript-Support-In-Wildfly/
- * Also covered in the Undertow docs
-
-== Template Example
-
-[source,javascript]
-----
-$undertow
-    .onGet("/hello",
-        {template: 'hello.txt', headers: {"content-type": "text/plain"}},
-        [function ($exchange) {
-            return {name: 'Stuart'};
-        }]);
-----
-
-(hello.txt is a mustache template file)
-
-== JSON Example
-
-[source,javascript]
-----
-$undertow
-    .alias('db', 'jndi:java:jboss/datasources/ExampleDS')
-    .onGet("/rest/members",
-        {transactional: true, {roles_allowed: ["admin", "user"]}, headers: {"content-type": "application/json"}},
-        ['db', function ($exchange, db) {
-            return DB.select("select * from members");
-        }]);
 ----
